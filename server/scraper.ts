@@ -140,7 +140,18 @@ export async function scrapeUrl(url: string): Promise<{
     );
   }
 
-  const browser = await chromium.connect(getBrowserlessEndpoint());
+  console.log(`[Scraper] Connecting to Browserless...`);
+  const endpoint = getBrowserlessEndpoint();
+  console.log(`[Scraper] Endpoint: ${endpoint.replace(BROWSERLESS_API_KEY, '***')}`);
+  
+  let browser;
+  try {
+    browser = await chromium.connectOverCDP(endpoint);
+    console.log(`[Scraper] Connected successfully`);
+  } catch (error) {
+    console.error(`[Scraper] Connection failed:`, error);
+    throw new Error(`Failed to connect to Browserless: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   try {
     const page = await browser.newPage();

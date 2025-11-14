@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, status, total_urls, completed_urls, failed_urls FROM scraping_jobs ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute SELECT id, status, total_urls, completed_urls, failed_urls FROM scraping_jobs ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "60006",
+      "status": "processing",
+      "total_urls": "1",
+      "completed_urls": "0",
+      "failed_urls": "0"
+    },
+    {
+      "id": "60005",
+      "status": "completed",
+      "total_urls": "1",
+      "completed_urls": "0",
+      "failed_urls": "1"
+    },
+    {
+      "id": "60004",
+      "status": "completed",
+      "total_urls": "1",
+      "completed_urls": "0",
+      "failed_urls": "1"
+    },
+    {
+      "id": "60003",
+      "status": "completed",
+      "total_urls": "1",
+      "completed_urls": "0",
+      "failed_urls": "1"
+    },
+    {
+      "id": "60002",
+      "status": "completed",
+      "total_urls": "2",
+      "completed_urls": "0",
+      "failed_urls": "2"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tstatus\ttotal_urls\tcompleted_urls\tfailed_urls\n60006\tprocessing\t1\t0\t0\n60005\tcompleted\t1\t0\t1\n60004\tcompleted\t1\t0\t1\n60003\tcompleted\t1\t0\t1\n60002\tcompleted\t2\t0\t2\n",
+  "stderr": "",
+  "execution_time_ms": 1591
+}

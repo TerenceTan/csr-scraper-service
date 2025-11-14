@@ -332,3 +332,27 @@ export async function updateContentSection(
 
   await db.update(contentSections).set({ content, charCount }).where(eq(contentSections.id, sectionId));
 }
+
+/**
+ * Delete a scraping job and all related data
+ */
+export async function deleteScrapingJob(jobId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  // Get all pages for this job
+  const pages = await db.select().from(scrapedPages).where(eq(scrapedPages.jobId, jobId));
+
+  // Delete content sections for each page
+  for (const page of pages) {
+    await db.delete(contentSections).where(eq(contentSections.pageId, page.id));
+  }
+
+  // Delete all pages
+  await db.delete(scrapedPages).where(eq(scrapedPages.jobId, jobId));
+
+  // Delete the job
+  await db.delete(scrapingJobs).where(eq(scrapingJobs.id, jobId));
+}

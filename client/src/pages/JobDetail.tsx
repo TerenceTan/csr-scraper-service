@@ -197,7 +197,7 @@ export default function JobDetail() {
                           {page.url}
                         </CardDescription>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {page.sections.length} sections • Status: {page.status}
+                          {page.content?.length || 0} sections • Status: {page.status}
                         </p>
                       </div>
                       {openPages[page.id] ? (
@@ -210,7 +210,7 @@ export default function JobDetail() {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="space-y-3">
-                    {page.sections.map((section) => (
+                    {page.content?.map((section) => (
                       <div key={section.id} className="border rounded-lg p-4 bg-white">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">

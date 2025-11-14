@@ -1,0 +1,80 @@
+{
+  "query": "SELECT sp.id, sp.url, sp.page_title, sp.status, COUNT(cs.id) as section_count FROM scraped_pages sp LEFT JOIN content_sections cs ON sp.id = cs.page_id GROUP BY sp.id ORDER BY sp.id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute SELECT sp.id, sp.url, sp.page_title, sp.status, COUNT(cs.id) as section_count FROM scraped_pages sp LEFT JOIN content_sections cs ON sp.id = cs.page_id GROUP BY sp.id ORDER BY sp.id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "60008",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "page_title": "NULL",
+      "status": "scraping",
+      "section_count": "0"
+    },
+    {
+      "id": "60007",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "60006",
+      "url": "https://pepperstone.com/en/",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "60005",
+      "url": "https://pepperstone.com/en/",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "60004",
+      "url": "https://pepperstone.com/en/",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "60003",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "60002",
+      "url": "https://pepperstone.com/en/",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "60001",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "30004",
+      "url": "https://pepperstone.com/en/",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    },
+    {
+      "id": "30003",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "page_title": "NULL",
+      "status": "failed",
+      "section_count": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\turl\tpage_title\tstatus\tsection_count\n60008\thttps://pepperstone.com/en/about-us/who-we-are\tNULL\tscraping\t0\n60007\thttps://pepperstone.com/en/about-us/who-we-are\tNULL\tfailed\t0\n60006\thttps://pepperstone.com/en/\tNULL\tfailed\t0\n60005\thttps://pepperstone.com/en/\tNULL\tfailed\t0\n60004\thttps://pepperstone.com/en/\tNULL\tfailed\t0\n60003\thttps://pepperstone.com/en/about-us/who-we-are\tNULL\tfailed\t0\n60002\thttps://pepperstone.com/en/\tNULL\tfailed\t0\n60001\thttps://pepperstone.com/en/about-us/who-we-are\tNULL\tfailed\t0\n30004\thttps://pepperstone.com/en/\tNULL\tfailed\t0\n30003\thttps://pepperstone.com/en/about-us/who-we-are\tNULL\tfailed\t0\n",
+  "stderr": "",
+  "execution_time_ms": 1614
+}

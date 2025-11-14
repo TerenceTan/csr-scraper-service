@@ -62,3 +62,11 @@
 - [x] Add BROWSERLESS_API_KEY to env.ts configuration
 - [x] Update scraper to use ENV.browserlessApiKey
 - [ ] Test scraping with proper API key
+
+## New Features & Bug Fixes
+- [x] Test scraping with real URL (example.com) - Confirmed working via Browserless dashboard
+- [x] Fix JobDetail page undefined pages error
+- [x] Add URL validation with green checkmark/red X feedback
+- [x] Add delete button for each job
+- [x] Debug why jobs stuck in processing state (fixed connectOverCDP)
+- [x] Verify scraping works end-to-end

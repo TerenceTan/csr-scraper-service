@@ -123,6 +123,14 @@ export const appRouter = router({
       return await db.getUserScrapingJobs(userId);
     }),
 
+    // Delete a job
+    deleteJob: publicProcedure
+      .input(z.object({ jobId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteScrapingJob(input.jobId);
+        return { success: true };
+      }),
+
     // Update content section
     updateSection: publicProcedure
       .input(

@@ -4,13 +4,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { APP_TITLE } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { Loader2, FileText, Download, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Loader2, FileText, Download, CheckCircle2, XCircle, Clock, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Link } from "wouter";
 
 export default function Home() {
   const [urls, setUrls] = useState("");
+  const [urlValidation, setUrlValidation] = useState<{ valid: boolean; invalid: boolean }>({ valid: false, invalid: false });
+
+  // Validate URLs when input changes
+  const validateUrls = (input: string) => {
+    const lines = input.split('\n').filter(line => line.trim());
+    if (lines.length === 0) {
+      setUrlValidation({ valid: false, invalid: false });
+      return;
+    }
+    
+    const urlPattern = /^https?:\/\/.+/;
+    const allValid = lines.every(line => urlPattern.test(line.trim()));
+    const someInvalid = lines.some(line => !urlPattern.test(line.trim()));
+    
+    setUrlValidation({ valid: allValid, invalid: someInvalid });
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setUrls(value);
+    validateUrls(value);
+  };
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
 
   const startJobMutation = trpc.scraping.startJob.useMutation({
@@ -28,6 +50,24 @@ export default function Home() {
   const jobsQuery = trpc.scraping.listJobs.useQuery(undefined, {
     refetchInterval: 5000, // Poll every 5 seconds for job updates
   });
+
+  const deleteJobMutation = trpc.scraping.deleteJob.useMutation({
+    onSuccess: () => {
+      toast.success("Job deleted successfully");
+      jobsQuery.refetch();
+    },
+    onError: (error) => {
+      toast.error("Failed to delete job: " + error.message);
+    },
+  });
+
+  const handleDeleteJob = (e: React.MouseEvent, jobId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirm("Are you sure you want to delete this job?")) {
+      deleteJobMutation.mutate({ jobId });
+    }
+  };
 
   const handleStartScraping = () => {
     const urlList = urls
@@ -97,13 +137,24 @@ export default function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea
-                placeholder="https://example.com&#10;https://example.com/about&#10;https://example.com/products"
-                value={urls}
-                onChange={(e) => setUrls(e.target.value)}
-                rows={8}
-                className="font-mono text-sm"
-              />
+              <div className="relative">
+                <Textarea
+                  placeholder="https://example.com&#10;https://example.com/about&#10;https://example.com/products"
+                  value={urls}
+                  onChange={handleUrlChange}
+                  rows={8}
+                  className={`font-mono text-sm pr-10 ${urlValidation.invalid ? 'border-red-300 focus:border-red-500' : urlValidation.valid ? 'border-green-300 focus:border-green-500' : ''}`}
+                />
+                {urlValidation.valid && (
+                  <CheckCircle2 className="absolute top-3 right-3 h-5 w-5 text-green-600" />
+                )}
+                {urlValidation.invalid && (
+                  <XCircle className="absolute top-3 right-3 h-5 w-5 text-red-600" />
+                )}
+              </div>
+              {urlValidation.invalid && (
+                <p className="text-sm text-red-600">Some URLs are invalid. Please check the format (must start with http:// or https://)</p>
+              )}
               <Button
                 onClick={handleStartScraping}
                 disabled={startJobMutation.isPending || !urls.trim()}
@@ -149,9 +200,20 @@ export default function Home() {
                               {getStatusIcon(job.status)}
                               <span className="font-medium">Job #{job.id}</span>
                             </div>
-                            <span className="text-sm text-muted-foreground">
-                              {getStatusText(job.status)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">
+                                {getStatusText(job.status)}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => handleDeleteJob(e, job.id)}
+                                disabled={deleteJobMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {job.completedUrls} / {job.totalUrls} URLs completed
