@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, scrapingJobs, scrapedPages, contentSections, InsertContentSection } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,117 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Scraping job queries
+export async function createScrapingJob(userId: number, totalUrls: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(scrapingJobs).values({
+    userId,
+    totalUrls,
+  });
+  return result[0].insertId;
+}
+
+export async function getScrapingJob(jobId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.select().from(scrapingJobs).where(eq(scrapingJobs.id, jobId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateScrapingJobStatus(jobId: number, status: "pending" | "processing" | "completed" | "failed", completedUrls?: number, failedUrls?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const updateData: any = { status };
+  if (completedUrls !== undefined) updateData.completedUrls = completedUrls;
+  if (failedUrls !== undefined) updateData.failedUrls = failedUrls;
+  
+  await db.update(scrapingJobs).set(updateData).where(eq(scrapingJobs.id, jobId));
+}
+
+export async function getUserScrapingJobs(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.select().from(scrapingJobs).where(eq(scrapingJobs.userId, userId)).orderBy(scrapingJobs.createdAt);
+}
+
+// Scraped page queries
+export async function createScrapedPage(jobId: number, url: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(scrapedPages).values({
+    jobId,
+    url,
+  });
+  return result[0].insertId;
+}
+
+export async function getScrapedPage(pageId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.select().from(scrapedPages).where(eq(scrapedPages.id, pageId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateScrapedPage(pageId: number, data: { pageTitle?: string; status?: "pending" | "scraping" | "completed" | "failed"; errorMessage?: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(scrapedPages).set(data).where(eq(scrapedPages.id, pageId));
+}
+
+export async function getJobPages(jobId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.select().from(scrapedPages).where(eq(scrapedPages.jobId, jobId));
+}
+
+// Content section queries
+export async function createContentSection(pageId: number, section: Omit<InsertContentSection, "pageId" | "createdAt" | "updatedAt">) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(contentSections).values({
+    pageId,
+    ...section,
+  });
+  return result[0].insertId;
+}
+
+export async function getPageSections(pageId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  return await db.select().from(contentSections).where(eq(contentSections.pageId, pageId)).orderBy(contentSections.orderIndex);
+}
+
+export async function updateContentSection(sectionId: number, content: string, charCount: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(contentSections).set({ content, charCount }).where(eq(contentSections.id, sectionId));
+}
+
+export async function getJobContent(jobId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Get all pages for this job with their sections
+  const pages = await db.select().from(scrapedPages).where(eq(scrapedPages.jobId, jobId));
+  
+  const pagesWithContent = await Promise.all(
+    pages.map(async (page) => {
+      const sections = await getPageSections(page.id);
+      return { ...page, sections };
+    })
+  );
+  
+  return pagesWithContent;
+}

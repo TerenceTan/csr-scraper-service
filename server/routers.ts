@@ -1,10 +1,74 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import * as db from "./db";
+import { scrapeUrl } from "./scraper";
+import { generateExcel, generateCSV } from "./export";
+
+/**
+ * Background processor for scraping jobs
+ */
+async function processScraping(jobId: number) {
+  try {
+    // Update job status to processing
+    await db.updateScrapingJobStatus(jobId, "processing");
+
+    // Get all pages for this job
+    const pages = await db.getJobPages(jobId);
+
+    let completedCount = 0;
+    let failedCount = 0;
+
+    // Process each page
+    for (const page of pages) {
+      try {
+        // Update page status to scraping
+        await db.updateScrapedPage(page.id, { status: "scraping" });
+
+        // Scrape the URL
+        const { pageTitle, content } = await scrapeUrl(page.url);
+
+        // Update page with title and status
+        await db.updateScrapedPage(page.id, {
+          pageTitle,
+          status: "completed",
+        });
+
+        // Save content sections
+        for (const section of content) {
+          await db.createContentSection(page.id, {
+            sectionType: section.sectionType,
+            sectionTitle: section.sectionTitle,
+            content: section.content,
+            orderIndex: section.orderIndex,
+            charCount: section.charCount,
+            context: null,
+          });
+        }
+
+        completedCount++;
+      } catch (error) {
+        console.error(`Error scraping ${page.url}:`, error);
+        await db.updateScrapedPage(page.id, {
+          status: "failed",
+          errorMessage: error instanceof Error ? error.message : "Unknown error",
+        });
+        failedCount++;
+      }
+    }
+
+    // Update job status to completed
+    await db.updateScrapingJobStatus(jobId, "completed", completedCount, failedCount);
+  } catch (error) {
+    console.error(`Fatal error processing job ${jobId}:`, error);
+    await db.updateScrapingJobStatus(jobId, "failed");
+  }
+}
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -17,12 +81,90 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  scraping: router({
+    // Start a new scraping job
+    startJob: protectedProcedure
+      .input(z.object({ urls: z.array(z.string().url()) }))
+      .mutation(async ({ ctx, input }) => {
+        const { urls } = input;
+        const userId = ctx.user.id;
+
+        // Create scraping job
+        const jobId = await db.createScrapingJob(userId, urls.length);
+
+        // Create page entries
+        for (const url of urls) {
+          await db.createScrapedPage(jobId, url);
+        }
+
+        // Start scraping in background
+        processScraping(jobId).catch((error) => {
+          console.error(`Error processing job ${jobId}:`, error);
+        });
+
+        return { jobId };
+      }),
+
+    // Get job status and content
+    getJob: protectedProcedure
+      .input(z.object({ jobId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const job = await db.getScrapingJob(input.jobId);
+        if (!job || job.userId !== ctx.user.id) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
+        }
+
+        const pagesWithContent = await db.getJobContent(input.jobId);
+        return { job, pages: pagesWithContent };
+      }),
+
+    // Get all jobs for current user
+    listJobs: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getUserScrapingJobs(ctx.user.id);
+    }),
+
+    // Update content section
+    updateSection: protectedProcedure
+      .input(
+        z.object({
+          sectionId: z.number(),
+          content: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { sectionId, content } = input;
+        const charCount = content.length;
+        await db.updateContentSection(sectionId, content, charCount);
+        return { success: true };
+      }),
+
+    // Export to Excel
+    exportExcel: protectedProcedure
+      .input(z.object({ jobId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const job = await db.getScrapingJob(input.jobId);
+        if (!job || job.userId !== ctx.user.id) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
+        }
+
+        const buffer = await generateExcel(input.jobId);
+        const base64 = buffer.toString('base64');
+        return { data: base64, filename: `scrape-job-${input.jobId}.xlsx` };
+      }),
+
+    // Export to CSV
+    exportCSV: protectedProcedure
+      .input(z.object({ jobId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const job = await db.getScrapingJob(input.jobId);
+        if (!job || job.userId !== ctx.user.id) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
+        }
+
+        const csvContent = await generateCSV(input.jobId);
+        return { data: csvContent, filename: `scrape-job-${input.jobId}.csv` };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
