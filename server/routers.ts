@@ -82,11 +82,11 @@ export const appRouter = router({
 
   scraping: router({
     // Start a new scraping job
-    startJob: protectedProcedure
+    startJob: publicProcedure
       .input(z.object({ urls: z.array(z.string().url()) }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         const { urls } = input;
-        const userId = ctx.user.id;
+        const userId = 1; // Default user ID since auth is removed
 
         // Create scraping job
         const jobId = await db.createScrapingJob(userId, urls.length);
@@ -105,11 +105,11 @@ export const appRouter = router({
       }),
 
     // Get job status and content
-    getJob: protectedProcedure
+    getJob: publicProcedure
       .input(z.object({ jobId: z.number() }))
-      .query(async ({ ctx, input }) => {
+      .query(async ({ input }) => {
         const job = await db.getScrapingJob(input.jobId);
-        if (!job || job.userId !== ctx.user.id) {
+        if (!job) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
         }
 
@@ -118,12 +118,13 @@ export const appRouter = router({
       }),
 
     // Get all jobs for current user
-    listJobs: protectedProcedure.query(async ({ ctx }) => {
-      return await db.getUserScrapingJobs(ctx.user.id);
+    listJobs: publicProcedure.query(async () => {
+      const userId = 1; // Default user ID since auth is removed
+      return await db.getUserScrapingJobs(userId);
     }),
 
     // Update content section
-    updateSection: protectedProcedure
+    updateSection: publicProcedure
       .input(
         z.object({
           sectionId: z.number(),
@@ -138,11 +139,11 @@ export const appRouter = router({
       }),
 
     // Export to Excel
-    exportExcel: protectedProcedure
+    exportExcel: publicProcedure
       .input(z.object({ jobId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         const job = await db.getScrapingJob(input.jobId);
-        if (!job || job.userId !== ctx.user.id) {
+        if (!job) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
         }
 
@@ -152,11 +153,11 @@ export const appRouter = router({
       }),
 
     // Export to CSV
-    exportCSV: protectedProcedure
+    exportCSV: publicProcedure
       .input(z.object({ jobId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
+      .mutation(async ({ input }) => {
         const job = await db.getScrapingJob(input.jobId);
-        if (!job || job.userId !== ctx.user.id) {
+        if (!job) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
         }
 

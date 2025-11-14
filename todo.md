@@ -47,3 +47,8 @@
 - [x] Add BROWSERLESS_API_KEY environment variable
 - [ ] Test scraping with Browserless
 - [x] Update documentation with Browserless setup instructions
+
+## Remove Authentication
+- [x] Update routers to remove protectedProcedure requirement
+- [x] Update frontend to remove login/auth checks
+- [x] Test app without authentication

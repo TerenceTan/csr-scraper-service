@@ -1,8 +1,8 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
+import { APP_TITLE } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Loader2, FileText, Download, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { useState } from "react";
@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { Link } from "wouter";
 
 export default function Home() {
-  const { user, loading, isAuthenticated } = useAuth();
   const [urls, setUrls] = useState("");
   const [activeJobId, setActiveJobId] = useState<number | null>(null);
 
@@ -27,7 +26,6 @@ export default function Home() {
   });
 
   const jobsQuery = trpc.scraping.listJobs.useQuery(undefined, {
-    enabled: isAuthenticated,
     refetchInterval: 5000, // Poll every 5 seconds for job updates
   });
 
@@ -60,36 +58,7 @@ export default function Home() {
     startJobMutation.mutate({ urls: urlList });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <img src={APP_LOGO} alt={APP_TITLE} className="h-16 w-16" />
-            </div>
-            <CardTitle className="text-2xl">{APP_TITLE}</CardTitle>
-            <CardDescription>
-              Extract visible text from client-side rendered websites for translation workflows
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full" size="lg">
-              <a href={getLoginUrl()}>Sign In to Get Started</a>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
