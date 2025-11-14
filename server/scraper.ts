@@ -54,7 +54,8 @@ async function extractContent(page: any) {
         }
         
         // Check for common navigation/footer class names and IDs
-        const className = element.className || '';
+        // Handle SVG elements where className is an object
+        const className = typeof element.className === 'string' ? element.className : '';
         const id = element.id || '';
         const combinedText = (className + ' ' + id).toLowerCase();
         

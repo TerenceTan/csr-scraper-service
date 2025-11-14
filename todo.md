@@ -89,3 +89,9 @@
 - [x] Detect and skip common nav/footer HTML patterns (nav, header, footer tags)
 - [x] Prioritize main content areas (main, article tags)
 - [x] Test with Pepperstone page to verify filtering works correctly (reduced from 86 to 24 sections)
+
+## Bug Fixes - Scraping Failure After Filtering
+- [x] Debug scraping failure reported by user
+- [x] Check server logs for error messages (found className type error for SVG elements)
+- [x] Identify root cause of failure (SVG elements have className as object, not string)
+- [x] Fix the issue and test with new job (Job #120005 completed successfully with 24 sections)
