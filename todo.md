@@ -26,3 +26,8 @@
 - [x] Test CSV export functionality
 - [x] Test content editing and re-export
 - [x] Verify export file structure matches translation workflow requirements
+
+## Bug Fixes
+- [x] Debug and fix scraping failures reported by user
+- [x] Add better error logging for troubleshooting
+- [x] Test with real URLs to ensure scraping works correctly

@@ -147,17 +147,26 @@ export async function scrapeUrl(url: string): Promise<{
   const page = await context.newPage();
 
   try {
-    // Navigate to the URL
-    await page.goto(url, {
-      waitUntil: 'networkidle',
-      timeout: 60000,
-    });
+    // Navigate to the URL with fallback strategies
+    try {
+      await page.goto(url, {
+        waitUntil: 'networkidle',
+        timeout: 30000,
+      });
+    } catch (error) {
+      // If networkidle fails, try with domcontentloaded
+      console.log(`Network idle timeout for ${url}, trying domcontentloaded...`);
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+      });
+    }
 
-    // Wait a bit more for any lazy-loaded content
-    await page.waitForTimeout(2000);
+    // Wait for any lazy-loaded content
+    await page.waitForTimeout(3000);
 
     // Get page title
-    const pageTitle = await page.title();
+    const pageTitle = (await page.title()) || 'Untitled';
 
     // Extract content
     const rawContent: any = await extractContent(page);

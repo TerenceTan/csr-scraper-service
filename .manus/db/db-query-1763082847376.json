@@ -1,0 +1,39 @@
+{
+  "query": "SELECT id, url, status, error_message FROM scraped_pages WHERE status = 'failed' ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute SELECT id, url, status, error_message FROM scraped_pages WHERE status = 'failed' ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "2",
+      "url": "https://pepperstone.com/en/",
+      "status": "failed",
+      "error_message": "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell"
+    },
+    {
+      "id": "1",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "status": "failed",
+      "error_message": "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell"
+    }
+  ],
+  "messages": [
+    "╔═════════════════════════════════════════════════════════════════════════╗",
+    "║ Looks like Playwright Test or Playwright was just installed or updated. ║",
+    "║ Please run the following command to download new browsers:              ║",
+    "║                                                                         ║",
+    "║     npx playwright install                                              ║",
+    "║                                                                         ║",
+    "║ <3 Playwright Team                                                      ║",
+    "╚═════════════════════════════════════════════════════════════════════════╝",
+    "╔═════════════════════════════════════════════════════════════════════════╗",
+    "║ Looks like Playwright Test or Playwright was just installed or updated. ║",
+    "║ Please run the following command to download new browsers:              ║",
+    "║                                                                         ║",
+    "║     npx playwright install                                              ║",
+    "║                                                                         ║",
+    "║ <3 Playwright Team                                                      ║",
+    "╚═════════════════════════════════════════════════════════════════════════╝"
+  ],
+  "stdout": "id\turl\tstatus\terror_message\n2\thttps://pepperstone.com/en/\tfailed\tbrowserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝\n1\thttps://pepperstone.com/en/about-us/who-we-are\tfailed\tbrowserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝\n",
+  "stderr": "",
+  "execution_time_ms": 1629
+}
