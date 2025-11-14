@@ -41,3 +41,9 @@
 - [x] Write deployment guide for microservice
 - [x] Test hybrid setup
 - [x] Push microservice to GitHub
+
+## Browserless.io Integration
+- [x] Update scraper.ts to use Browserless.io API
+- [x] Add BROWSERLESS_API_KEY environment variable
+- [ ] Test scraping with Browserless
+- [x] Update documentation with Browserless setup instructions
