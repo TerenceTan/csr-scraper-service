@@ -57,3 +57,8 @@
 - [x] Fix JobDetail page crash when viewing job details
 - [x] Debug why jobs are failing (missing BROWSERLESS_API_KEY)
 - [x] Add better error handling and loading states
+
+## Environment Variable Fix
+- [x] Add BROWSERLESS_API_KEY to env.ts configuration
+- [x] Update scraper to use ENV.browserlessApiKey
+- [ ] Test scraping with proper API key

@@ -2,8 +2,9 @@
  * Scraper module using Browserless.io for production scraping
  */
 import { chromium } from 'playwright-core';
+import { ENV } from './_core/env';
 
-const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY || '';
+const BROWSERLESS_API_KEY = ENV.browserlessApiKey;
 
 /**
  * Check if Browserless is configured
