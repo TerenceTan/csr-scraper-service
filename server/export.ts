@@ -40,7 +40,7 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
     };
 
     // Add data rows
-    page.sections.forEach((section) => {
+    page.content.forEach((section) => {
       worksheet.addRow({
         id: section.id,
         section: section.sectionTitle || section.sectionType,
@@ -92,7 +92,7 @@ export async function generateCSV(jobId: number): Promise<string> {
 
   // Add data rows
   for (const page of pagesWithContent) {
-    for (const section of page.sections) {
+    for (const section of page.content) {
       rows.push([
         section.id.toString(),
         page.url,

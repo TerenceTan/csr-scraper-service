@@ -31,3 +31,13 @@
 - [x] Debug and fix scraping failures reported by user
 - [x] Add better error logging for troubleshooting
 - [x] Test with real URLs to ensure scraping works correctly
+
+## Production Deployment - Hybrid Approach
+- [x] Create standalone scraping microservice for VPS
+- [x] Create Dockerfile for scraping service
+- [x] Create API endpoint for scraping
+- [x] Update main app to call scraping microservice
+- [x] Add SCRAPING_SERVICE_URL environment variable
+- [x] Write deployment guide for microservice
+- [x] Test hybrid setup
+- [x] Push microservice to GitHub

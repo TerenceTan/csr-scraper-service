@@ -1,134 +1,19 @@
-import { chromium, Browser, Page } from 'playwright';
+/**
+ * Scraper module that calls the remote scraping microservice
+ */
 
-let browser: Browser | null = null;
+const SCRAPING_SERVICE_URL = process.env.SCRAPING_SERVICE_URL || '';
+const SCRAPING_SERVICE_API_KEY = process.env.SCRAPING_SERVICE_API_KEY || '';
 
 /**
- * Initialize the browser instance
+ * Check if remote scraping service is configured
  */
-async function getBrowser(): Promise<Browser> {
-  if (!browser) {
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-  }
-  return browser;
+function isRemoteServiceConfigured(): boolean {
+  return Boolean(SCRAPING_SERVICE_URL && SCRAPING_SERVICE_API_KEY);
 }
 
 /**
- * Close the browser instance
- */
-export async function closeBrowser() {
-  if (browser) {
-    await browser.close();
-    browser = null;
-  }
-}
-
-/**
- * Extract visible text content from a page
- */
-async function extractContent(page: Page) {
-  // Use a string-based evaluation to avoid transpilation issues
-  const extractionScript = `
-    (() => {
-      const result = [];
-      let orderIndex = 0;
-
-      const isVisible = (element) => {
-        const style = window.getComputedStyle(element);
-        return (
-          style.display !== 'none' &&
-          style.visibility !== 'hidden' &&
-          style.opacity !== '0' &&
-          element.offsetParent !== null
-        );
-      };
-
-      const getCleanText = (element) => {
-        return element.textContent?.trim() || '';
-      };
-
-      // Extract headings (h1-h6)
-      const headingSelectors = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-      headingSelectors.forEach((selector) => {
-        const headings = document.querySelectorAll(selector);
-        headings.forEach((heading) => {
-          if (isVisible(heading)) {
-            const text = getCleanText(heading);
-            if (text) {
-              result.push({
-                sectionType: selector,
-                sectionTitle: text,
-                content: text,
-                orderIndex: orderIndex++,
-              });
-            }
-          }
-        });
-      });
-
-      // Extract paragraphs
-      const paragraphs = document.querySelectorAll('p');
-      paragraphs.forEach((p) => {
-        if (isVisible(p)) {
-          const text = getCleanText(p);
-          if (text) {
-            result.push({
-              sectionType: 'p',
-              sectionTitle: null,
-              content: text,
-              orderIndex: orderIndex++,
-            });
-          }
-        }
-      });
-
-      // Extract list items
-      const listItems = document.querySelectorAll('li');
-      listItems.forEach((li) => {
-        if (isVisible(li)) {
-          const text = getCleanText(li);
-          if (text) {
-            result.push({
-              sectionType: 'li',
-              sectionTitle: null,
-              content: text,
-              orderIndex: orderIndex++,
-            });
-          }
-        }
-      });
-
-      // Extract other text elements
-      const textElements = document.querySelectorAll('span, div, a, button, label');
-      textElements.forEach((element) => {
-        const hasBlockChildren = element.querySelector('p, h1, h2, h3, h4, h5, h6, li, div');
-        if (!hasBlockChildren && isVisible(element)) {
-          const text = getCleanText(element);
-          if (text && text.length > 3) {
-            const alreadyCaptured = result.some((item) => item.content === text);
-            if (!alreadyCaptured) {
-              result.push({
-                sectionType: element.tagName.toLowerCase(),
-                sectionTitle: null,
-                content: text,
-                orderIndex: orderIndex++,
-              });
-            }
-          }
-        }
-      });
-
-      return result.sort((a, b) => a.orderIndex - b.orderIndex);
-    })()
-  `;
-
-  return await page.evaluate(extractionScript);
-}
-
-/**
- * Scrape a single URL and extract its content
+ * Scrape a single URL using the remote scraping service
  */
 export async function scrapeUrl(url: string): Promise<{
   pageTitle: string;
@@ -140,46 +25,39 @@ export async function scrapeUrl(url: string): Promise<{
     charCount: number;
   }>;
 }> {
-  const browserInstance = await getBrowser();
-  const context = await browserInstance.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  });
-  const page = await context.newPage();
+  if (!isRemoteServiceConfigured()) {
+    throw new Error(
+      'Scraping service not configured. Please set SCRAPING_SERVICE_URL and SCRAPING_SERVICE_API_KEY environment variables.'
+    );
+  }
 
   try {
-    // Navigate to the URL with fallback strategies
-    try {
-      await page.goto(url, {
-        waitUntil: 'networkidle',
-        timeout: 30000,
-      });
-    } catch (error) {
-      // If networkidle fails, try with domcontentloaded
-      console.log(`Network idle timeout for ${url}, trying domcontentloaded...`);
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000,
-      });
+    const response = await fetch(`${SCRAPING_SERVICE_URL}/scrape`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': SCRAPING_SERVICE_API_KEY,
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Scraping service returned ${response.status}: ${response.statusText}`);
     }
 
-    // Wait for any lazy-loaded content
-    await page.waitForTimeout(3000);
+    const result = await response.json();
 
-    // Get page title
-    const pageTitle = (await page.title()) || 'Untitled';
+    if (!result.success) {
+      throw new Error(result.error || 'Scraping failed');
+    }
 
-    // Extract content
-    const rawContent: any = await extractContent(page);
-
-    // Add character count to each section
-    const content = rawContent.map((section: any) => ({
-      ...section,
-      charCount: section.content.length,
-    }));
-
-    return { pageTitle, content };
-  } finally {
-    await context.close();
+    return {
+      pageTitle: result.pageTitle,
+      content: result.content,
+    };
+  } catch (error) {
+    console.error(`[Scraper] Error scraping ${url}:`, error);
+    throw error;
   }
 }
 
