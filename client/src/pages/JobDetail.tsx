@@ -210,19 +210,17 @@ export default function JobDetail() {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="space-y-3">
-                    {page.content?.map((section) => (
-                      <div key={section.id} className="border rounded-lg p-4 bg-white">
+                    {page.content?.sort((a, b) => a.orderIndex - b.orderIndex).map((section, index) => (
+                        <div key={section.id} className="border rounded-lg p-4 bg-white">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                              <span className="text-xs font-semibold text-gray-500 min-w-[3rem]">
+                                #{index + 1}
+                              </span>
+                              <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
                                 {section.sectionType}
                               </span>
-                              {section.sectionTitle && (
-                                <span className="text-sm font-medium text-gray-700">
-                                  {section.sectionTitle}
-                                </span>
-                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {section.charCount} characters

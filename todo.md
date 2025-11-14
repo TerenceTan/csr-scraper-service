@@ -70,3 +70,11 @@
 - [x] Add delete button for each job
 - [x] Debug why jobs stuck in processing state (fixed connectOverCDP)
 - [x] Verify scraping works end-to-end
+
+## Export Format Changes
+- [x] Remove section grouping from exports
+- [x] Show content in exact page sequence (by orderIndex)
+- [x] Add "Tag" column showing HTML tag names (h1, h2, p, li, etc.)
+- [x] Update Excel export with new column structure
+- [x] Update CSV export with new column structure
+- [x] Update JobDetail page to show new format

@@ -21,12 +21,11 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
 
     const worksheet = workbook.addWorksheet(sheetName);
 
-    // Add header row
+    // Add header row with new structure
     worksheet.columns = [
-      { header: 'ID', key: 'id', width: 10 },
-      { header: 'Section', key: 'section', width: 20 },
+      { header: 'Order', key: 'order', width: 8 },
+      { header: 'Tag', key: 'tag', width: 10 },
       { header: 'Source Text', key: 'sourceText', width: 50 },
-      { header: 'Context', key: 'context', width: 30 },
       { header: 'Char Count', key: 'charCount', width: 12 },
       { header: 'Translation', key: 'translation', width: 50 },
     ];
@@ -39,13 +38,15 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
       fgColor: { argb: 'FFE0E0E0' },
     };
 
+    // Sort content by orderIndex to maintain page sequence
+    const sortedContent = [...page.content].sort((a, b) => a.orderIndex - b.orderIndex);
+
     // Add data rows
-    page.content.forEach((section) => {
+    sortedContent.forEach((section, index) => {
       worksheet.addRow({
-        id: section.id,
-        section: section.sectionTitle || section.sectionType,
+        order: index + 1, // Sequential order starting from 1
+        tag: section.sectionType, // HTML tag name (h1, h2, p, li, etc.)
         sourceText: section.content,
-        context: section.context || '',
         charCount: section.charCount,
         translation: '', // Empty column for translator to fill
       });
@@ -79,44 +80,43 @@ export async function generateCSV(jobId: number): Promise<string> {
 
   const rows: string[][] = [];
 
-  // Add header row
+  // Add header row with new structure
   rows.push([
-    'ID',
     'Page URL',
-    'Section',
+    'Order',
+    'Tag',
     'Source Text',
-    'Context',
     'Char Count',
     'Translation',
   ]);
 
   // Add data rows
   for (const page of pagesWithContent) {
-    for (const section of page.content) {
+    // Sort content by orderIndex to maintain page sequence
+    const sortedContent = [...page.content].sort((a, b) => a.orderIndex - b.orderIndex);
+    
+    sortedContent.forEach((section, index) => {
       rows.push([
-        section.id.toString(),
         page.url,
-        section.sectionTitle || section.sectionType,
+        (index + 1).toString(), // Sequential order starting from 1
+        section.sectionType, // HTML tag name
         section.content,
-        section.context || '',
         section.charCount.toString(),
-        '', // Empty column for translator to fill
+        '', // Empty for translation
       ]);
-    }
+    });
   }
 
   // Convert to CSV format
-  const csvContent = rows
+  return rows
     .map((row) =>
-      row.map((cell) => {
-        // Escape quotes and wrap in quotes if contains comma, quote, or newline
-        if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
-          return `"${cell.replace(/"/g, '""')}"`;
-        }
-        return cell;
-      }).join(',')
+      row
+        .map((cell) => {
+          // Escape quotes and wrap in quotes if contains comma, quote, or newline
+          const escaped = cell.replace(/"/g, '""');
+          return /[",\n]/.test(cell) ? `"${escaped}"` : escaped;
+        })
+        .join(',')
     )
     .join('\n');
-
-  return csvContent;
 }
