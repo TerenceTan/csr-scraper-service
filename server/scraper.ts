@@ -44,6 +44,52 @@ async function extractContent(page: any) {
         return element.textContent?.trim() || '';
       };
 
+      // Check if element is likely navigation or footer content
+      const isNavigationOrFooter = (element) => {
+        const tagName = element.tagName.toLowerCase();
+        
+        // Skip nav, header, footer tags
+        if (['nav', 'header', 'footer'].includes(tagName)) {
+          return true;
+        }
+        
+        // Check for common navigation/footer class names and IDs
+        const className = element.className || '';
+        const id = element.id || '';
+        const combinedText = (className + ' ' + id).toLowerCase();
+        
+        const navFooterPatterns = [
+          'nav', 'menu', 'header', 'footer', 'sidebar', 'breadcrumb',
+          'cookie', 'banner', 'toolbar', 'topbar', 'bottombar'
+        ];
+        
+        return navFooterPatterns.some(pattern => combinedText.includes(pattern));
+      };
+
+      // Find main content area
+      const findMainContent = () => {
+        // Try to find main content container
+        const mainSelectors = [
+          'main',
+          'article',
+          '[role="main"]',
+          '.main-content',
+          '.content',
+          '#content',
+          '#main'
+        ];
+        
+        for (const selector of mainSelectors) {
+          const element = document.querySelector(selector);
+          if (element) {
+            return element;
+          }
+        }
+        
+        // Fallback to body if no main content found
+        return document.body;
+      };
+
       // Traverse DOM tree in document order (depth-first)
       const traverse = (element) => {
         if (!element || !element.tagName) return;
@@ -55,6 +101,11 @@ async function extractContent(page: any) {
         }
 
         if (!isVisible(element)) {
+          return;
+        }
+        
+        // Skip navigation and footer content
+        if (isNavigationOrFooter(element)) {
           return;
         }
 
@@ -84,9 +135,10 @@ async function extractContent(page: any) {
         }
       };
 
-      // Start traversal from body
-      if (document.body) {
-        traverse(document.body);
+      // Start traversal from main content area
+      const mainContent = findMainContent();
+      if (mainContent) {
+        traverse(mainContent);
       }
 
       return result;

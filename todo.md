@@ -83,3 +83,9 @@
 - [x] Update scraper to traverse DOM in document order
 - [x] Extract content in HTML sequence (top to bottom)
 - [x] Test with Pepperstone page to verify correct visual sequence
+
+## Content Filtering
+- [x] Add smart filtering to exclude navigation menus and footers
+- [x] Detect and skip common nav/footer HTML patterns (nav, header, footer tags)
+- [x] Prioritize main content areas (main, article tags)
+- [x] Test with Pepperstone page to verify filtering works correctly (reduced from 86 to 24 sections)
