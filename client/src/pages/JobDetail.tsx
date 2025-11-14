@@ -1,4 +1,4 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,11 +12,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 export default function JobDetail() {
   const [, params] = useRoute("/job/:id");
   const jobId = params?.id ? parseInt(params.id) : null;
-  const { isAuthenticated } = useAuth();
 
   const jobQuery = trpc.scraping.getJob.useQuery(
     { jobId: jobId! },
-    { enabled: isAuthenticated && jobId !== null, refetchInterval: 5000 }
+    { enabled: jobId !== null, refetchInterval: 5000 }
   );
 
   const updateSectionMutation = trpc.scraping.updateSection.useMutation({
@@ -127,7 +126,15 @@ export default function JobDetail() {
     );
   }
 
-  const { job, pages } = jobQuery.data!;
+  if (!jobQuery.data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const { job, pages } = jobQuery.data;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">

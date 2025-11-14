@@ -52,3 +52,8 @@
 - [x] Update routers to remove protectedProcedure requirement
 - [x] Update frontend to remove login/auth checks
 - [x] Test app without authentication
+
+## Bug Fixes - Job Issues
+- [x] Fix JobDetail page crash when viewing job details
+- [x] Debug why jobs are failing (missing BROWSERLESS_API_KEY)
+- [x] Add better error handling and loading states

@@ -1,0 +1,54 @@
+{
+  "query": "SELECT id, job_id, url, status, error_message FROM scraped_pages WHERE status = 'failed' ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute SELECT id, job_id, url, status, error_message FROM scraped_pages WHERE status = 'failed' ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "60004",
+      "job_id": "60002",
+      "url": "https://pepperstone.com/en/",
+      "status": "failed",
+      "error_message": "Browserless not configured. Please set BROWSERLESS_API_KEY environment variable."
+    },
+    {
+      "id": "60003",
+      "job_id": "60002",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "status": "failed",
+      "error_message": "Browserless not configured. Please set BROWSERLESS_API_KEY environment variable."
+    },
+    {
+      "id": "60002",
+      "job_id": "60001",
+      "url": "https://pepperstone.com/en/",
+      "status": "failed",
+      "error_message": "Browserless not configured. Please set BROWSERLESS_API_KEY environment variable."
+    },
+    {
+      "id": "60001",
+      "job_id": "60001",
+      "url": "https://pepperstone.com/en/about-us/who-we-are",
+      "status": "failed",
+      "error_message": "Browserless not configured. Please set BROWSERLESS_API_KEY environment variable."
+    },
+    {
+      "id": "30004",
+      "job_id": "30002",
+      "url": "https://pepperstone.com/en/",
+      "status": "failed",
+      "error_message": "browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell"
+    }
+  ],
+  "messages": [
+    "╔═════════════════════════════════════════════════════════════════════════╗",
+    "║ Looks like Playwright Test or Playwright was just installed or updated. ║",
+    "║ Please run the following command to download new browsers:              ║",
+    "║                                                                         ║",
+    "║     npx playwright install                                              ║",
+    "║                                                                         ║",
+    "║ <3 Playwright Team                                                      ║",
+    "╚═════════════════════════════════════════════════════════════════════════╝"
+  ],
+  "stdout": "id\tjob_id\turl\tstatus\terror_message\n60004\t60002\thttps://pepperstone.com/en/\tfailed\tBrowserless not configured. Please set BROWSERLESS_API_KEY environment variable.\n60003\t60002\thttps://pepperstone.com/en/about-us/who-we-are\tfailed\tBrowserless not configured. Please set BROWSERLESS_API_KEY environment variable.\n60002\t60001\thttps://pepperstone.com/en/\tfailed\tBrowserless not configured. Please set BROWSERLESS_API_KEY environment variable.\n60001\t60001\thttps://pepperstone.com/en/about-us/who-we-are\tfailed\tBrowserless not configured. Please set BROWSERLESS_API_KEY environment variable.\n30004\t30002\thttps://pepperstone.com/en/\tfailed\tbrowserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell\n╔═════════════════════════════════════════════════════════════════════════╗\n║ Looks like Playwright Test or Playwright was just installed or updated. ║\n║ Please run the following command to download new browsers:              ║\n║                                                                         ║\n║     npx playwright install                                              ║\n║                                                                         ║\n║ <3 Playwright Team                                                      ║\n╚═════════════════════════════════════════════════════════════════════════╝\n",
+  "stderr": "",
+  "execution_time_ms": 1533
+}
