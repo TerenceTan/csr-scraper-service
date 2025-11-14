@@ -21,21 +21,22 @@ function getBrowserlessEndpoint(): string {
 }
 
 /**
- * Extract visible text content from a page
+ * Extract visible text content from a page in sequential HTML order
  */
 async function extractContent(page: any) {
   const extractionScript = `
     (() => {
       const result = [];
       let orderIndex = 0;
+      const processedTexts = new Set();
 
       const isVisible = (element) => {
         const style = window.getComputedStyle(element);
+        // Simplified visibility check - offsetParent can be null for visible elements
+        // with position:fixed or CSS transforms
         return (
           style.display !== 'none' &&
-          style.visibility !== 'hidden' &&
-          style.opacity !== '0' &&
-          element.offsetParent !== null
+          style.visibility !== 'hidden'
         );
       };
 
@@ -43,78 +44,52 @@ async function extractContent(page: any) {
         return element.textContent?.trim() || '';
       };
 
-      // Extract headings (h1-h6)
-      const headingSelectors = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-      headingSelectors.forEach((selector) => {
-        const headings = document.querySelectorAll(selector);
-        headings.forEach((heading) => {
-          if (isVisible(heading)) {
-            const text = getCleanText(heading);
-            if (text) {
-              result.push({
-                sectionType: selector,
-                sectionTitle: text,
-                content: text,
-                orderIndex: orderIndex++,
-              });
-            }
-          }
-        });
-      });
-
-      // Extract paragraphs
-      const paragraphs = document.querySelectorAll('p');
-      paragraphs.forEach((p) => {
-        if (isVisible(p)) {
-          const text = getCleanText(p);
-          if (text) {
-            result.push({
-              sectionType: 'p',
-              sectionTitle: null,
-              content: text,
-              orderIndex: orderIndex++,
-            });
-          }
+      // Traverse DOM tree in document order (depth-first)
+      const traverse = (element) => {
+        if (!element || !element.tagName) return;
+        
+        // Skip script, style, and hidden elements
+        const tagName = element.tagName.toLowerCase();
+        if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) {
+          return;
         }
-      });
 
-      // Extract list items
-      const listItems = document.querySelectorAll('li');
-      listItems.forEach((li) => {
-        if (isVisible(li)) {
-          const text = getCleanText(li);
-          if (text) {
-            result.push({
-              sectionType: 'li',
-              sectionTitle: null,
-              content: text,
-              orderIndex: orderIndex++,
-            });
-          }
+        if (!isVisible(element)) {
+          return;
         }
-      });
 
-      // Extract other text elements
-      const textElements = document.querySelectorAll('span, div, a, button, label');
-      textElements.forEach((element) => {
-        const hasBlockChildren = element.querySelector('p, h1, h2, h3, h4, h5, h6, li, div');
-        if (!hasBlockChildren && isVisible(element)) {
+        // Elements we want to capture
+        const captureElements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li'];
+        
+        if (captureElements.includes(tagName)) {
           const text = getCleanText(element);
-          if (text && text.length > 3) {
-            const alreadyCaptured = result.some((item) => item.content === text);
-            if (!alreadyCaptured) {
-              result.push({
-                sectionType: element.tagName.toLowerCase(),
-                sectionTitle: null,
-                content: text,
-                orderIndex: orderIndex++,
-              });
-            }
+          if (text && text.length > 0 && !processedTexts.has(text)) {
+            processedTexts.add(text);
+            result.push({
+              sectionType: tagName,
+              sectionTitle: tagName.startsWith('h') ? text : null,
+              content: text,
+              orderIndex: orderIndex++,
+            });
+          }
+          // Don't traverse children of these elements (already captured their text)
+          return;
+        }
+
+        // Recursively traverse children for other elements
+        if (element.children) {
+          for (let i = 0; i < element.children.length; i++) {
+            traverse(element.children[i]);
           }
         }
-      });
+      };
 
-      return result.sort((a, b) => a.orderIndex - b.orderIndex);
+      // Start traversal from body
+      if (document.body) {
+        traverse(document.body);
+      }
+
+      return result;
     })()
   `;
 
@@ -140,44 +115,35 @@ export async function scrapeUrl(url: string): Promise<{
     );
   }
 
-  console.log(`[Scraper] Connecting to Browserless...`);
+  console.log('[Scraper] Connecting to Browserless...');
   const endpoint = getBrowserlessEndpoint();
-  console.log(`[Scraper] Endpoint: ${endpoint.replace(BROWSERLESS_API_KEY, '***')}`);
-  
-  let browser;
-  try {
-    browser = await chromium.connectOverCDP(endpoint);
-    console.log(`[Scraper] Connected successfully`);
-  } catch (error) {
-    console.error(`[Scraper] Connection failed:`, error);
-    throw new Error(`Failed to connect to Browserless: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+  console.log('[Scraper] Endpoint:', endpoint.replace(BROWSERLESS_API_KEY!, '***'));
+
+  const browser = await chromium.connectOverCDP(endpoint);
+  console.log('[Scraper] Connected successfully');
 
   try {
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-    // Navigate with fallback strategies
-    try {
-      await page.goto(url, {
-        waitUntil: 'networkidle',
-        timeout: 30000,
-      });
-    } catch (error) {
-      console.log(`[Scraper] Network idle timeout for ${url}, trying domcontentloaded...`);
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000,
-      });
-    }
+    console.log(`[Scraper] Navigating to ${url}...`);
+    await page.goto(url, { 
+      waitUntil: 'networkidle',
+      timeout: 60000 
+    });
+    console.log('[Scraper] Page loaded');
 
-    // Wait for lazy-loaded content
+    // Wait for content to render
     await page.waitForTimeout(3000);
 
     // Get page title
-    const pageTitle = (await page.title()) || 'Untitled';
+    const pageTitle = await page.title();
+    console.log(`[Scraper] Page title: ${pageTitle}`);
 
     // Extract content
+    console.log('[Scraper] Extracting content...');
     const rawContent = await extractContent(page);
+    console.log(`[Scraper] Extracted ${rawContent.length} sections`);
 
     // Add character count
     const content = rawContent.map((section: any) => ({
@@ -185,54 +151,10 @@ export async function scrapeUrl(url: string): Promise<{
       charCount: section.content.length,
     }));
 
-    await page.close();
+    await context.close();
 
     return { pageTitle, content };
-  } catch (error) {
-    console.error(`[Scraper] Error scraping ${url}:`, error);
-    throw error;
   } finally {
     await browser.close();
   }
-}
-
-/**
- * Scrape multiple URLs
- */
-export async function scrapeUrls(urls: string[]): Promise<
-  Array<{
-    url: string;
-    success: boolean;
-    pageTitle?: string;
-    content?: Array<{
-      sectionType: string;
-      sectionTitle: string | null;
-      content: string;
-      orderIndex: number;
-      charCount: number;
-    }>;
-    error?: string;
-  }>
-> {
-  const results = [];
-
-  for (const url of urls) {
-    try {
-      const { pageTitle, content } = await scrapeUrl(url);
-      results.push({
-        url,
-        success: true,
-        pageTitle,
-        content,
-      });
-    } catch (error) {
-      results.push({
-        url,
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
-  return results;
 }

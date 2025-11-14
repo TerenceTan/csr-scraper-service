@@ -78,3 +78,8 @@
 - [x] Update Excel export with new column structure
 - [x] Update CSV export with new column structure
 - [x] Update JobDetail page to show new format
+
+## Visual Order Fix
+- [x] Update scraper to traverse DOM in document order
+- [x] Extract content in HTML sequence (top to bottom)
+- [x] Test with Pepperstone page to verify correct visual sequence

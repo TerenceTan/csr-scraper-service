@@ -1,0 +1,8 @@
+{
+  "query": "SELECT c.id, c.sectionType, c.content, c.orderIndex \nFROM content_sections c\nJOIN scraped_pages p ON c.pageId = p.id\nWHERE p.jobId = 90005\nORDER BY c.pageId, c.orderIndex\nLIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute SELECT c.id, c.sectionType, c.content, c.orderIndex \nFROM content_sections c\nJOIN scraped_pages p ON c.pageId = p.id\nWHERE p.jobId = 90005\nORDER BY c.pageId, c.orderIndex\nLIMIT 20;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'c.pageid' in 'on clause'"
+  ]
+}

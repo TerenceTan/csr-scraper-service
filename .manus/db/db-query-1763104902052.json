@@ -1,0 +1,130 @@
+{
+  "query": "SELECT c.id, c.section_type, c.content, c.order_index \nFROM content_sections c\nJOIN scraped_pages p ON c.page_id = p.id\nWHERE p.job_id = 90005\nORDER BY c.page_id, c.order_index\nLIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute SELECT c.id, c.section_type, c.content, c.order_index \nFROM content_sections c\nJOIN scraped_pages p ON c.page_id = p.id\nWHERE p.job_id = 90005\nORDER BY c.page_id, c.order_index\nLIMIT 20;",
+  "rows": [
+    {
+      "id": "1001",
+      "section_type": "h1",
+      "content": "Who we are",
+      "order_index": "0"
+    },
+    {
+      "id": "1002",
+      "section_type": "h2",
+      "content": "Trusted around the world",
+      "order_index": "1"
+    },
+    {
+      "id": "1003",
+      "section_type": "h2",
+      "content": "Our Sponsorships",
+      "order_index": "2"
+    },
+    {
+      "id": "1004",
+      "section_type": "h2",
+      "content": "Still curious?",
+      "order_index": "3"
+    },
+    {
+      "id": "1005",
+      "section_type": "h3",
+      "content": "Our history",
+      "order_index": "4"
+    },
+    {
+      "id": "1006",
+      "section_type": "h3",
+      "content": "An award-winning broker",
+      "order_index": "5"
+    },
+    {
+      "id": "1007",
+      "section_type": "h3",
+      "content": "Ready to trade?",
+      "order_index": "6"
+    },
+    {
+      "id": "1008",
+      "section_type": "h4",
+      "content": "We sponsor",
+      "order_index": "7"
+    },
+    {
+      "id": "1009",
+      "section_type": "h5",
+      "content": "Process",
+      "order_index": "8"
+    },
+    {
+      "id": "1010",
+      "section_type": "h5",
+      "content": "Trusted",
+      "order_index": "9"
+    },
+    {
+      "id": "1011",
+      "section_type": "h5",
+      "content": "Regulated",
+      "order_index": "10"
+    },
+    {
+      "id": "1012",
+      "section_type": "p",
+      "content": "We use cookies to understand how you use our website and to give you the best possible experience. By continuing to use this website, you agree to our use of cookies. You can find out more by viewing our Cookie Policy.",
+      "order_index": "11"
+    },
+    {
+      "id": "1013",
+      "section_type": "p",
+      "content": "CFDs are complex instruments and come with a high risk of losing money rapidly due to leverage. 80% of retail investor accounts lose money when trading CFDs with this provider. You should consider whether you understand how CFDs work and whether you can afford to take the high risk of losing your money.",
+      "order_index": "12"
+    },
+    {
+      "id": "1014",
+      "section_type": "p",
+      "content": "Home /",
+      "order_index": "13"
+    },
+    {
+      "id": "1015",
+      "section_type": "p",
+      "content": "Why Pepperstone /",
+      "order_index": "14"
+    },
+    {
+      "id": "1016",
+      "section_type": "p",
+      "content": "Who we are",
+      "order_index": "15"
+    },
+    {
+      "id": "1017",
+      "section_type": "p",
+      "content": "At Pepperstone, we know what it’s like to trade. With the scale of a global fintech and the agility of a start-up, we’re here to arm you with everything you need to take on the global markets with confidence.",
+      "order_index": "16"
+    },
+    {
+      "id": "1018",
+      "section_type": "p",
+      "content": "Pepperstone was founded in 2010 in Melbourne, Australia by a team of experienced traders with a shared commitment to improve the world of online trading. Frustrated by delayed executions, expensive prices and poor customer support, we set out to provide traders around the world with superior technology, low-cost spreads and a genuine commitment to helping them master the trade.",
+      "order_index": "17"
+    },
+    {
+      "id": "1019",
+      "section_type": "p",
+      "content": "We process an average of US$9.2bn of trades every day^, making us one of the world’s largest margin forex brokers.",
+      "order_index": "18"
+    },
+    {
+      "id": "1020",
+      "section_type": "p",
+      "content": "We're trusted by over 400,000* traders around the world.",
+      "order_index": "19"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsection_type\tcontent\torder_index\n1001\th1\tWho we are\t0\n1002\th2\tTrusted around the world\t1\n1003\th2\tOur Sponsorships\t2\n1004\th2\tStill curious?\t3\n1005\th3\tOur history\t4\n1006\th3\tAn award-winning broker\t5\n1007\th3\tReady to trade?\t6\n1008\th4\tWe sponsor\t7\n1009\th5\tProcess\t8\n1010\th5\tTrusted\t9\n1011\th5\tRegulated\t10\n1012\tp\tWe use cookies to understand how you use our website and to give you the best possible experience. By continuing to use this website, you agree to our use of cookies. You can find out more by viewing our Cookie Policy.\t11\n1013\tp\tCFDs are complex instruments and come with a high risk of losing money rapidly due to leverage. 80% of retail investor accounts lose money when trading CFDs with this provider. You should consider whether you understand how CFDs work and whether you can afford to take the high risk of losing your money.\t12\n1014\tp\tHome /\t13\n1015\tp\tWhy Pepperstone /\t14\n1016\tp\tWho we are\t15\n1017\tp\tAt Pepperstone, we know what it’s like to trade. With the scale of a global fintech and the agility of a start-up, we’re here to arm you with everything you need to take on the global markets with confidence.\t16\n1018\tp\tPepperstone was founded in 2010 in Melbourne, Australia by a team of experienced traders with a shared commitment to improve the world of online trading. Frustrated by delayed executions, expensive prices and poor customer support, we set out to provide traders around the world with superior technology, low-cost spreads and a genuine commitment to helping them master the trade.\t17\n1019\tp\tWe process an average of US$9.2bn of trades every day^, making us one of the world’s largest margin forex brokers.\t18\n1020\tp\tWe're trusted by over 400,000* traders around the world.\t19\n",
+  "stderr": "",
+  "execution_time_ms": 1542
+}

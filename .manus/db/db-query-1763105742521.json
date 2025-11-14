@@ -1,0 +1,135 @@
+{
+  "query": "\nSELECT \n  c.order_index,\n  c.section_type,\n  LEFT(c.content, 80) as content_preview\nFROM content_sections c\nJOIN scraped_pages p ON c.page_id = p.id\nJOIN scraping_jobs j ON p.job_id = j.id\nWHERE j.id = 90007\nORDER BY c.order_index\nLIMIT 25\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute \nSELECT \n  c.order_index,\n  c.section_type,\n  LEFT(c.content, 80) as content_preview\nFROM content_sections c\nJOIN scraped_pages p ON c.page_id = p.id\nJOIN scraping_jobs j ON p.job_id = j.id\nWHERE j.id = 90007\nORDER BY c.order_index\nLIMIT 25\n",
+  "rows": [
+    {
+      "order_index": "0",
+      "section_type": "p",
+      "content_preview": "We use cookies to understand how you use our website and to give you the best po"
+    },
+    {
+      "order_index": "1",
+      "section_type": "p",
+      "content_preview": "CFDs are complex instruments and come with a high risk of losing money rapidly d"
+    },
+    {
+      "order_index": "2",
+      "section_type": "li",
+      "content_preview": "Home"
+    },
+    {
+      "order_index": "3",
+      "section_type": "li",
+      "content_preview": "Pro"
+    },
+    {
+      "order_index": "4",
+      "section_type": "li",
+      "content_preview": "Partners"
+    },
+    {
+      "order_index": "5",
+      "section_type": "li",
+      "content_preview": "Help and support"
+    },
+    {
+      "order_index": "6",
+      "section_type": "li",
+      "content_preview": "Ways to tradeTrading accountsChoose from two account types depending on your str"
+    },
+    {
+      "order_index": "7",
+      "section_type": "li",
+      "content_preview": "MarketsForex CFDsGet great rates on majors like EUR/USD, plus minors and exotics"
+    },
+    {
+      "order_index": "8",
+      "section_type": "li",
+      "content_preview": "Trading platformsTradingViewTrade through the world-famous supercharts with grea"
+    },
+    {
+      "order_index": "9",
+      "section_type": "li",
+      "content_preview": "Market analysisNavigating marketsLatest news and analysis from our expertsThe Da"
+    },
+    {
+      "order_index": "10",
+      "section_type": "li",
+      "content_preview": "LearnTrading guidesTrading guides & educational materialsWebinarsGrow your knowl"
+    },
+    {
+      "order_index": "11",
+      "section_type": "li",
+      "content_preview": "About usWho we arePepperstone was born from the dream of making trading betterCo"
+    },
+    {
+      "order_index": "12",
+      "section_type": "p",
+      "content_preview": "Home /"
+    },
+    {
+      "order_index": "13",
+      "section_type": "p",
+      "content_preview": "Why Pepperstone /"
+    },
+    {
+      "order_index": "14",
+      "section_type": "p",
+      "content_preview": "Who we are"
+    },
+    {
+      "order_index": "15",
+      "section_type": "p",
+      "content_preview": "At Pepperstone, we know what it’s like to trade. With the scale of a global fint"
+    },
+    {
+      "order_index": "16",
+      "section_type": "h3",
+      "content_preview": "Our history"
+    },
+    {
+      "order_index": "17",
+      "section_type": "p",
+      "content_preview": "Pepperstone was founded in 2010 in Melbourne, Australia by a team of experienced"
+    },
+    {
+      "order_index": "18",
+      "section_type": "h2",
+      "content_preview": "Trusted around the world"
+    },
+    {
+      "order_index": "19",
+      "section_type": "h5",
+      "content_preview": "Process"
+    },
+    {
+      "order_index": "20",
+      "section_type": "p",
+      "content_preview": "We process an average of US$9.2bn of trades every day^, making us one of the wor"
+    },
+    {
+      "order_index": "21",
+      "section_type": "h5",
+      "content_preview": "Trusted"
+    },
+    {
+      "order_index": "22",
+      "section_type": "p",
+      "content_preview": "We're trusted by over 400,000* traders around the world."
+    },
+    {
+      "order_index": "23",
+      "section_type": "h5",
+      "content_preview": "Regulated"
+    },
+    {
+      "order_index": "24",
+      "section_type": "p",
+      "content_preview": "In addition to being regulated by ASIC, SCB, FCA, DFSA, CMA, BaFin and CySEC, we"
+    }
+  ],
+  "messages": [],
+  "stdout": "order_index\tsection_type\tcontent_preview\n0\tp\tWe use cookies to understand how you use our website and to give you the best po\n1\tp\tCFDs are complex instruments and come with a high risk of losing money rapidly d\n2\tli\tHome\n3\tli\tPro\n4\tli\tPartners\n5\tli\tHelp and support\n6\tli\tWays to tradeTrading accountsChoose from two account types depending on your str\n7\tli\tMarketsForex CFDsGet great rates on majors like EUR/USD, plus minors and exotics\n8\tli\tTrading platformsTradingViewTrade through the world-famous supercharts with grea\n9\tli\tMarket analysisNavigating marketsLatest news and analysis from our expertsThe Da\n10\tli\tLearnTrading guidesTrading guides & educational materialsWebinarsGrow your knowl\n11\tli\tAbout usWho we arePepperstone was born from the dream of making trading betterCo\n12\tp\tHome /\n13\tp\tWhy Pepperstone /\n14\tp\tWho we are\n15\tp\tAt Pepperstone, we know what it’s like to trade. With the scale of a global fint\n16\th3\tOur history\n17\tp\tPepperstone was founded in 2010 in Melbourne, Australia by a team of experienced\n18\th2\tTrusted around the world\n19\th5\tProcess\n20\tp\tWe process an average of US$9.2bn of trades every day^, making us one of the wor\n21\th5\tTrusted\n22\tp\tWe're trusted by over 400,000* traders around the world.\n23\th5\tRegulated\n24\tp\tIn addition to being regulated by ASIC, SCB, FCA, DFSA, CMA, BaFin and CySEC, we\n",
+  "stderr": "",
+  "execution_time_ms": 1546
+}
