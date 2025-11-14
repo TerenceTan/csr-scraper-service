@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  scraper:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - API_KEY=${API_KEY:-change-this-in-production}
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: 1.0
