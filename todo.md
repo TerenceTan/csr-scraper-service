@@ -110,3 +110,9 @@
 - [x] Add table content extraction (tables now extracted with row/column structure)
 - [x] Handle expandable content (data-testid="pui-expendable-banner") by forcing opacity=1
 - [ ] Create guide for adding BROWSERLESS_API_KEY to production server
+
+## Bug Fixes - Scraping Still Failing on Development Server
+- [x] Investigate why scraping is still failing after recent improvements (found string escaping issues in template literal)
+- [x] Check server logs for error messages (SyntaxError: Invalid or unexpected token from attribute selectors)
+- [x] Identify root cause and fix the issue (rewrote extraction script to pass function directly to page.evaluate() instead of template literal string)
+- [ ] Test with new scraping job to verify fix works (form submission not working reliably, but code fix is complete)
