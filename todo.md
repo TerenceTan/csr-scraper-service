@@ -103,3 +103,10 @@
 - [x] Change waitUntil from 'networkidle' to 'domcontentloaded' for better reliability
 - [x] Improve error logging for better debugging
 - [x] Test with multiple URLs to verify stability (Job #150003 completed successfully with 24 sections)
+
+## New Feature Requests
+- [x] Exclude disclaimer banner (data-testid="pui-disclaimer-banner")
+- [x] Exclude live pricing banner (data-testid="pui-live-pricing")
+- [x] Add table content extraction (tables now extracted with row/column structure)
+- [x] Handle expandable content (data-testid="pui-expendable-banner") by forcing opacity=1
+- [ ] Create guide for adding BROWSERLESS_API_KEY to production server

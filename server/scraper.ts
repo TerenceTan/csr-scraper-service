@@ -44,12 +44,22 @@ async function extractContent(page: any) {
         return element.textContent?.trim() || '';
       };
 
-      // Check if element is likely navigation or footer content
-      const isNavigationOrFooter = (element) => {
+      // Check if element should be excluded (navigation, footer, banners)
+      const isExcludedContent = (element) => {
         const tagName = element.tagName.toLowerCase();
         
         // Skip nav, header, footer tags
         if (['nav', 'header', 'footer'].includes(tagName)) {
+          return true;
+        }
+        
+        // Check for specific data-testid attributes to exclude
+        const testId = element.getAttribute('data-testid') || '';
+        const excludedTestIds = [
+          'pui-disclaimer-banner',
+          'pui-live-pricing'
+        ];
+        if (excludedTestIds.includes(testId)) {
           return true;
         }
         
@@ -65,6 +75,43 @@ async function extractContent(page: any) {
         ];
         
         return navFooterPatterns.some(pattern => combinedText.includes(pattern));
+      };
+
+      // Force expandable content to be visible
+      const forceExpandableVisible = () => {
+        // Find all expandable banners and force them visible
+        const expandables = document.querySelectorAll('[data-testid="pui-expendable-banner"]');
+        expandables.forEach(el => {
+          el.style.opacity = '1';
+          el.style.visibility = 'visible';
+          el.style.display = 'block';
+          // Also force all children visible
+          const children = el.querySelectorAll('*');
+          children.forEach(child => {
+            child.style.opacity = '1';
+            child.style.visibility = 'visible';
+          });
+        });
+      };
+
+      // Extract table content
+      const extractTable = (table) => {
+        const rows = [];
+        const tableRows = table.querySelectorAll('tr');
+        
+        tableRows.forEach(tr => {
+          const cells = [];
+          const tableCells = tr.querySelectorAll('th, td');
+          tableCells.forEach(cell => {
+            const text = getCleanText(cell);
+            if (text) cells.push(text);
+          });
+          if (cells.length > 0) {
+            rows.push(cells.join(' | '));
+          }
+        });
+        
+        return rows.join('\n');
       };
 
       // Find main content area
@@ -105,8 +152,24 @@ async function extractContent(page: any) {
           return;
         }
         
-        // Skip navigation and footer content
-        if (isNavigationOrFooter(element)) {
+        // Skip excluded content (navigation, footer, banners)
+        if (isExcludedContent(element)) {
+          return;
+        }
+
+        // Handle tables
+        if (tagName === 'table') {
+          const tableContent = extractTable(element);
+          if (tableContent && !processedTexts.has(tableContent)) {
+            processedTexts.add(tableContent);
+            result.push({
+              sectionType: 'table',
+              sectionTitle: null,
+              content: tableContent,
+              orderIndex: orderIndex++,
+            });
+          }
+          // Don't traverse children (already extracted table content)
           return;
         }
 
@@ -136,6 +199,9 @@ async function extractContent(page: any) {
         }
       };
 
+      // Force expandable content visible first
+      forceExpandableVisible();
+      
       // Start traversal from main content area
       const mainContent = findMainContent();
       if (mainContent) {
