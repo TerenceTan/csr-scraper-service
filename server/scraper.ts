@@ -24,172 +24,129 @@ function getBrowserlessEndpoint(): string {
  * Extract visible text content from a page in sequential HTML order
  */
 async function extractContent(page: any) {
-  // Pass function directly to page.evaluate to avoid string escaping issues
-  return await page.evaluate(() => {
-    const result: Array<{
-      sectionType: string;
-      sectionTitle: string | null;
-      content: string;
-      orderIndex: number;
-    }> = [];
-    let orderIndex = 0;
-    const processedTexts = new Set<string>();
+  const extractionScript = `
+    (() => {
+      const result = [];
+      let orderIndex = 0;
+      const processedTexts = new Set();
 
-    const isVisible = (element: Element): boolean => {
-      const style = window.getComputedStyle(element);
-      return (
-        style.display !== 'none' &&
-        style.visibility !== 'hidden'
-      );
-    };
+      const isVisible = (element) => {
+        const style = window.getComputedStyle(element);
+        // Simplified visibility check - offsetParent can be null for visible elements
+        // with position:fixed or CSS transforms
+        return (
+          style.display !== 'none' &&
+          style.visibility !== 'hidden'
+        );
+      };
 
-    const getCleanText = (element: Element): string => {
-      return element.textContent?.trim() || '';
-    };
+      const getCleanText = (element) => {
+        return element.textContent?.trim() || '';
+      };
 
-    const isExcludedContent = (element: Element): boolean => {
-      const tagName = element.tagName.toLowerCase();
-      
-      if (['nav', 'header', 'footer'].includes(tagName)) {
-        return true;
-      }
-      
-      const testId = element.getAttribute('data-testid') || '';
-      const excludedTestIds = [
-        'pui-disclaimer-banner',
-        'pui-live-pricing'
-      ];
-      if (excludedTestIds.includes(testId)) {
-        return true;
-      }
-      
-      const className = typeof (element as any).className === 'string' ? (element as any).className : '';
-      const id = (element as any).id || '';
-      const combinedText = (className + ' ' + id).toLowerCase();
-      
-      const navFooterPatterns = [
-        'nav', 'menu', 'header', 'footer', 'sidebar', 'breadcrumb',
-        'cookie', 'banner', 'toolbar', 'topbar', 'bottombar'
-      ];
-      
-      return navFooterPatterns.some(pattern => combinedText.includes(pattern));
-    };
-
-    const forceExpandableVisible = (): void => {
-      const expandables = document.querySelectorAll('[data-testid="pui-expendable-banner"]');
-      expandables.forEach(el => {
-        (el as HTMLElement).style.opacity = '1';
-        (el as HTMLElement).style.visibility = 'visible';
-        (el as HTMLElement).style.display = 'block';
-        const children = el.querySelectorAll('*');
-        children.forEach(child => {
-          (child as HTMLElement).style.opacity = '1';
-          (child as HTMLElement).style.visibility = 'visible';
-        });
-      });
-    };
-
-    const extractTable = (table: Element): string => {
-      const rows: string[] = [];
-      const tableRows = table.querySelectorAll('tr');
-      
-      tableRows.forEach(tr => {
-        const cells: string[] = [];
-        const tableCells = tr.querySelectorAll('th, td');
-        tableCells.forEach(cell => {
-          const text = getCleanText(cell);
-          if (text) cells.push(text);
-        });
-        if (cells.length > 0) {
-          rows.push(cells.join(' | '));
+      // Check if element is likely navigation or footer content
+      const isNavigationOrFooter = (element) => {
+        const tagName = element.tagName.toLowerCase();
+        
+        // Skip nav, header, footer tags
+        if (['nav', 'header', 'footer'].includes(tagName)) {
+          return true;
         }
-      });
-      
-      return rows.join(' || ');
-    };
+        
+        // Check for common navigation/footer class names and IDs
+        // Handle SVG elements where className is an object
+        const className = typeof element.className === 'string' ? element.className : '';
+        const id = element.id || '';
+        const combinedText = (className + ' ' + id).toLowerCase();
+        
+        const navFooterPatterns = [
+          'nav', 'menu', 'header', 'footer', 'sidebar', 'breadcrumb',
+          'cookie', 'banner', 'toolbar', 'topbar', 'bottombar'
+        ];
+        
+        return navFooterPatterns.some(pattern => combinedText.includes(pattern));
+      };
 
-    const findMainContent = (): Element => {
-      const mainSelectors = [
-        'main',
-        'article',
-        '[role="main"]',
-        '.main-content',
-        '.content',
-        '#content',
-        '#main'
-      ];
-      
-      for (const selector of mainSelectors) {
-        const element = document.querySelector(selector);
-        if (element) {
-          return element;
+      // Find main content area
+      const findMainContent = () => {
+        // Try to find main content container
+        const mainSelectors = [
+          'main',
+          'article',
+          '[role="main"]',
+          '.main-content',
+          '.content',
+          '#content',
+          '#main'
+        ];
+        
+        for (const selector of mainSelectors) {
+          const element = document.querySelector(selector);
+          if (element) {
+            return element;
+          }
         }
-      }
-      
-      return document.body;
-    };
+        
+        // Fallback to body if no main content found
+        return document.body;
+      };
 
-    const traverse = (element: Element): void => {
-      if (!element || !element.tagName) return;
-      
-      const tagName = element.tagName.toLowerCase();
-      if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) {
-        return;
-      }
-
-      if (!isVisible(element)) {
-        return;
-      }
-      
-      if (isExcludedContent(element)) {
-        return;
-      }
-
-      if (tagName === 'table') {
-        const tableContent = extractTable(element);
-        if (tableContent && !processedTexts.has(tableContent)) {
-          processedTexts.add(tableContent);
-          result.push({
-            sectionType: 'table',
-            sectionTitle: null,
-            content: tableContent,
-            orderIndex: orderIndex++,
-          });
+      // Traverse DOM tree in document order (depth-first)
+      const traverse = (element) => {
+        if (!element || !element.tagName) return;
+        
+        // Skip script, style, and hidden elements
+        const tagName = element.tagName.toLowerCase();
+        if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) {
+          return;
         }
-        return;
-      }
 
-      const captureElements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li'];
-      
-      if (captureElements.includes(tagName)) {
-        const text = getCleanText(element);
-        if (text && text.length > 0 && !processedTexts.has(text)) {
-          processedTexts.add(text);
-          result.push({
-            sectionType: tagName,
-            sectionTitle: tagName.startsWith('h') ? text : null,
-            content: text,
-            orderIndex: orderIndex++,
-          });
+        if (!isVisible(element)) {
+          return;
         }
-        return;
-      }
-
-      if (element.children) {
-        for (let i = 0; i < element.children.length; i++) {
-          traverse(element.children[i]);
+        
+        // Skip navigation and footer content
+        if (isNavigationOrFooter(element)) {
+          return;
         }
+
+        // Elements we want to capture
+        const captureElements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li'];
+        
+        if (captureElements.includes(tagName)) {
+          const text = getCleanText(element);
+          if (text && text.length > 0 && !processedTexts.has(text)) {
+            processedTexts.add(text);
+            result.push({
+              sectionType: tagName,
+              sectionTitle: tagName.startsWith('h') ? text : null,
+              content: text,
+              orderIndex: orderIndex++,
+            });
+          }
+          // Don't traverse children of these elements (already captured their text)
+          return;
+        }
+
+        // Recursively traverse children for other elements
+        if (element.children) {
+          for (let i = 0; i < element.children.length; i++) {
+            traverse(element.children[i]);
+          }
+        }
+      };
+
+      // Start traversal from main content area
+      const mainContent = findMainContent();
+      if (mainContent) {
+        traverse(mainContent);
       }
-    };
 
-    forceExpandableVisible();
-    const mainContent = findMainContent();
-    if (mainContent) {
-      traverse(mainContent);
-    }
+      return result;
+    })()
+  `;
 
-    return result;
-  });
+  return await page.evaluate(extractionScript);
 }
 
 /**
@@ -206,51 +163,88 @@ export async function scrapeUrl(url: string): Promise<{
   }>;
 }> {
   if (!isBrowserlessConfigured()) {
-    throw new Error('Browserless not configured. Please set BROWSERLESS_API_KEY environment variable.');
+    throw new Error(
+      'Browserless not configured. Please set BROWSERLESS_API_KEY environment variable.'
+    );
   }
 
-  // Wrap entire scraping operation in a timeout
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Scraping timeout after 2 minutes')), 120000);
-  });
+  // Wrap entire scraping operation in a timeout (2 minutes max)
+  return Promise.race([
+    scrapeUrlInternal(url),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Scraping timeout after 120 seconds')), 120000)
+    )
+  ]);
+}
 
-  const scrapePromise = (async () => {
-    const browser = await chromium.connectOverCDP(getBrowserlessEndpoint());
-    
+/**
+ * Internal scraping implementation
+ */
+async function scrapeUrlInternal(url: string): Promise<{
+  pageTitle: string;
+  content: Array<{
+    sectionType: string;
+    sectionTitle: string | null;
+    content: string;
+    orderIndex: number;
+    charCount: number;
+  }>;
+}> {
+  console.log('[Scraper] Connecting to Browserless...');
+  const endpoint = getBrowserlessEndpoint();
+  console.log('[Scraper] Endpoint:', endpoint.replace(BROWSERLESS_API_KEY!, '***'));
+
+  let browser;
+  try {
+    browser = await chromium.connectOverCDP(endpoint);
+    console.log('[Scraper] Connected successfully');
+  } catch (error) {
+    console.error('[Scraper] Failed to connect to Browserless:', error);
+    throw new Error(`Failed to connect to Browserless: ${error}`);
+  }
+
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    console.log(`[Scraper] Navigating to ${url}...`);
     try {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-
-      // Navigate to URL with timeout
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 60000,
+      await page.goto(url, { 
+        waitUntil: 'domcontentloaded', // Changed from 'networkidle' to be more reliable
+        timeout: 60000 
       });
-
-      // Wait a bit for dynamic content to load
-      await page.waitForTimeout(2000);
-
-      // Extract content
-      const content = await extractContent(page);
-
-      // Get page title
-      const pageTitle = await page.title();
-
-      // Close context
-      await context.close();
-
-      return {
-        pageTitle,
-        content: content.map((section: any) => ({
-          ...section,
-          charCount: section.content.length,
-        })),
-      };
-    } finally {
-      // Always disconnect browser
-      await browser.close();
+      console.log('[Scraper] Page loaded');
+    } catch (error) {
+      console.error('[Scraper] Navigation failed:', error);
+      throw new Error(`Failed to navigate to ${url}: ${error}`);
     }
-  })();
 
-  return Promise.race([scrapePromise, timeoutPromise]);
+    // Wait for content to render
+    await page.waitForTimeout(3000);
+
+    // Get page title
+    const pageTitle = await page.title();
+    console.log(`[Scraper] Page title: ${pageTitle}`);
+
+    // Extract content
+    console.log('[Scraper] Extracting content...');
+    const rawContent = await extractContent(page);
+    console.log(`[Scraper] Extracted ${rawContent.length} sections`);
+
+    // Add character count
+    const content = rawContent.map((section: any) => ({
+      ...section,
+      charCount: section.content.length,
+    }));
+
+    await context.close();
+    console.log('[Scraper] Context closed');
+
+    return { pageTitle, content };
+  } finally {
+    if (browser) {
+      await browser.close();
+      console.log('[Scraper] Browser closed');
+    }
+  }
 }
