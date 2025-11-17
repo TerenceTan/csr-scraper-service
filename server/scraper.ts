@@ -54,8 +54,7 @@ async function extractContent(page: any) {
         }
         
         // Check for common navigation/footer class names and IDs
-        // Handle SVG elements where className is an object
-        const className = typeof element.className === 'string' ? element.className : '';
+        const className = element.className || '';
         const id = element.id || '';
         const combinedText = (className + ' ' + id).toLowerCase();
         
@@ -150,7 +149,7 @@ async function extractContent(page: any) {
 }
 
 /**
- * Scrape a single URL using Browserless with timeout protection
+ * Scrape a single URL using Browserless
  */
 export async function scrapeUrl(url: string): Promise<{
   pageTitle: string;
@@ -168,56 +167,23 @@ export async function scrapeUrl(url: string): Promise<{
     );
   }
 
-  // Wrap entire scraping operation in a timeout (2 minutes max)
-  return Promise.race([
-    scrapeUrlInternal(url),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Scraping timeout after 120 seconds')), 120000)
-    )
-  ]);
-}
-
-/**
- * Internal scraping implementation
- */
-async function scrapeUrlInternal(url: string): Promise<{
-  pageTitle: string;
-  content: Array<{
-    sectionType: string;
-    sectionTitle: string | null;
-    content: string;
-    orderIndex: number;
-    charCount: number;
-  }>;
-}> {
   console.log('[Scraper] Connecting to Browserless...');
   const endpoint = getBrowserlessEndpoint();
   console.log('[Scraper] Endpoint:', endpoint.replace(BROWSERLESS_API_KEY!, '***'));
 
-  let browser;
-  try {
-    browser = await chromium.connectOverCDP(endpoint);
-    console.log('[Scraper] Connected successfully');
-  } catch (error) {
-    console.error('[Scraper] Failed to connect to Browserless:', error);
-    throw new Error(`Failed to connect to Browserless: ${error}`);
-  }
+  const browser = await chromium.connectOverCDP(endpoint);
+  console.log('[Scraper] Connected successfully');
 
   try {
     const context = await browser.newContext();
     const page = await context.newPage();
 
     console.log(`[Scraper] Navigating to ${url}...`);
-    try {
-      await page.goto(url, { 
-        waitUntil: 'domcontentloaded', // Changed from 'networkidle' to be more reliable
-        timeout: 60000 
-      });
-      console.log('[Scraper] Page loaded');
-    } catch (error) {
-      console.error('[Scraper] Navigation failed:', error);
-      throw new Error(`Failed to navigate to ${url}: ${error}`);
-    }
+    await page.goto(url, { 
+      waitUntil: 'networkidle',
+      timeout: 60000 
+    });
+    console.log('[Scraper] Page loaded');
 
     // Wait for content to render
     await page.waitForTimeout(3000);
@@ -238,13 +204,9 @@ async function scrapeUrlInternal(url: string): Promise<{
     }));
 
     await context.close();
-    console.log('[Scraper] Context closed');
 
     return { pageTitle, content };
   } finally {
-    if (browser) {
-      await browser.close();
-      console.log('[Scraper] Browser closed');
-    }
+    await browser.close();
   }
 }
