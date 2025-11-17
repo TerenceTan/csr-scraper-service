@@ -89,3 +89,21 @@
 - [x] Detect and skip common nav/footer HTML patterns (nav, header, footer tags)
 - [x] Prioritize main content areas (main, article tags)
 - [x] Test with Pepperstone page to verify filtering works correctly (reduced from 86 to 24 sections)
+
+## Rollback and Feature Re-implementation
+- [x] Rollback to checkpoint 6ba28067 (last known working version)
+- [x] Fix waitUntil from networkidle to domcontentloaded (fixed Browserless connection issue)
+- [x] Verify scraping works with test job (SUCCESS!)
+- [x] Re-implement banner exclusions (pui-disclaimer-banner, pui-live-pricing) with testing (SUCCESS!)
+- [x] Add pui-cookies exclusion (SUCCESS!)
+- [x] Add table extraction with testing (SUCCESS!)
+- [x] Add expandable content handling (pui-expendable-banner) with testing (SUCCESS!)
+- [x] Save final checkpoint with all features working
+
+## Bug Fixes - TypeScript Errors
+- [x] Fix getUserByOpenId and upsertUser missing from server/db.ts (added OAuth support to schema)
+- [x] Add openId and loginMethod fields to users table schema
+- [x] Run database migration (pnpm db:push)
+- [x] Fix nullable username/password TypeScript errors
+- [x] Verify tRPC API is working correctly (SUCCESS!)
+- [x] Test that homepage loads without errors (SUCCESS!)

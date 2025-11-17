@@ -53,8 +53,14 @@ async function extractContent(page: any) {
           return true;
         }
         
+        // Check for specific data-testid attributes to exclude
+        const testId = element.getAttribute('data-testid') || '';
+        if (testId === 'pui-disclaimer-banner' || testId === 'pui-live-pricing' || testId === 'pui-cookies') {
+          return true;
+        }
+        
         // Check for common navigation/footer class names and IDs
-        const className = element.className || '';
+        const className = typeof element.className === 'string' ? element.className : '';
         const id = element.id || '';
         const combinedText = (className + ' ' + id).toLowerCase();
         
@@ -106,6 +112,39 @@ async function extractContent(page: any) {
         
         // Skip navigation and footer content
         if (isNavigationOrFooter(element)) {
+          return;
+        }
+
+        // Handle tables separately
+        if (tagName === 'table') {
+          const rows = element.querySelectorAll('tr');
+          if (rows.length > 0) {
+            const tableContent = [];
+            rows.forEach(row => {
+              const cells = row.querySelectorAll('th, td');
+              const cellTexts = [];
+              cells.forEach(cell => {
+                const cellText = getCleanText(cell);
+                if (cellText) cellTexts.push(cellText);
+              });
+              if (cellTexts.length > 0) {
+                tableContent.push(cellTexts.join(' | '));
+              }
+            });
+            if (tableContent.length > 0) {
+              const fullTableText = tableContent.join(' || ');
+              if (!processedTexts.has(fullTableText)) {
+                processedTexts.add(fullTableText);
+                result.push({
+                  sectionType: 'table',
+                  sectionTitle: null,
+                  content: fullTableText,
+                  orderIndex: orderIndex++,
+                });
+              }
+            }
+          }
+          // Don't traverse children of table (already processed)
           return;
         }
 
@@ -180,13 +219,25 @@ export async function scrapeUrl(url: string): Promise<{
 
     console.log(`[Scraper] Navigating to ${url}...`);
     await page.goto(url, { 
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded',
       timeout: 60000 
     });
     console.log('[Scraper] Page loaded');
 
     // Wait for content to render
     await page.waitForTimeout(3000);
+
+    // Force expandable content to be visible
+    await page.evaluate(() => {
+      const expandableBanners = document.querySelectorAll('[data-testid="pui-expendable-banner"]');
+      expandableBanners.forEach(banner => {
+        if (banner instanceof HTMLElement) {
+          banner.style.opacity = '1';
+          banner.style.visibility = 'visible';
+          banner.style.display = 'block';
+        }
+      });
+    });
 
     // Get page title
     const pageTitle = await page.title();

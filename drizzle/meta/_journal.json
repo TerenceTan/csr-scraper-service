@@ -15,6 +15,13 @@
       "when": 1763081781025,
       "tag": "0001_strong_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1763360619410,
+      "tag": "0002_soft_lester",
+      "breakpoints": true
     }
   ]
 }
