@@ -95,3 +95,11 @@
 - [x] Check server logs for error messages (found className type error for SVG elements)
 - [x] Identify root cause of failure (SVG elements have className as object, not string)
 - [x] Fix the issue and test with new job (Job #120005 completed successfully with 24 sections)
+
+## Bug Fixes - New Scraping Failures
+- [x] Investigate new scraping failures reported by user
+- [x] Check server logs for error patterns (found hanging jobs and timeout issues)
+- [x] Add overall timeout to prevent hanging scraping jobs (2-minute max)
+- [x] Change waitUntil from 'networkidle' to 'domcontentloaded' for better reliability
+- [x] Improve error logging for better debugging
+- [x] Test with multiple URLs to verify stability (Job #150003 completed successfully with 24 sections)

@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, url, status, error_message FROM scraped_pages WHERE job_id = 150001 LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4BKTKqUZyZRKw6F.root --database U7gWqc6Sh5BLTfzpwKfrkK --execute SELECT id, url, status, error_message FROM scraped_pages WHERE job_id = 150001 LIMIT 5;",
+  "rows": [
+    {
+      "id": "150001",
+      "url": "https://pepperstone.com/en/",
+      "status": "failed",
+      "error_message": "Browserless not configured. Please set BROWSERLESS_API_KEY environment variable."
+    }
+  ],
+  "messages": [],
+  "stdout": "id\turl\tstatus\terror_message\n150001\thttps://pepperstone.com/en/\tfailed\tBrowserless not configured. Please set BROWSERLESS_API_KEY environment variable.\n",
+  "stderr": "",
+  "execution_time_ms": 1695
+}

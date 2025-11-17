@@ -150,7 +150,7 @@ async function extractContent(page: any) {
 }
 
 /**
- * Scrape a single URL using Browserless
+ * Scrape a single URL using Browserless with timeout protection
  */
 export async function scrapeUrl(url: string): Promise<{
   pageTitle: string;
@@ -168,23 +168,56 @@ export async function scrapeUrl(url: string): Promise<{
     );
   }
 
+  // Wrap entire scraping operation in a timeout (2 minutes max)
+  return Promise.race([
+    scrapeUrlInternal(url),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Scraping timeout after 120 seconds')), 120000)
+    )
+  ]);
+}
+
+/**
+ * Internal scraping implementation
+ */
+async function scrapeUrlInternal(url: string): Promise<{
+  pageTitle: string;
+  content: Array<{
+    sectionType: string;
+    sectionTitle: string | null;
+    content: string;
+    orderIndex: number;
+    charCount: number;
+  }>;
+}> {
   console.log('[Scraper] Connecting to Browserless...');
   const endpoint = getBrowserlessEndpoint();
   console.log('[Scraper] Endpoint:', endpoint.replace(BROWSERLESS_API_KEY!, '***'));
 
-  const browser = await chromium.connectOverCDP(endpoint);
-  console.log('[Scraper] Connected successfully');
+  let browser;
+  try {
+    browser = await chromium.connectOverCDP(endpoint);
+    console.log('[Scraper] Connected successfully');
+  } catch (error) {
+    console.error('[Scraper] Failed to connect to Browserless:', error);
+    throw new Error(`Failed to connect to Browserless: ${error}`);
+  }
 
   try {
     const context = await browser.newContext();
     const page = await context.newPage();
 
     console.log(`[Scraper] Navigating to ${url}...`);
-    await page.goto(url, { 
-      waitUntil: 'networkidle',
-      timeout: 60000 
-    });
-    console.log('[Scraper] Page loaded');
+    try {
+      await page.goto(url, { 
+        waitUntil: 'domcontentloaded', // Changed from 'networkidle' to be more reliable
+        timeout: 60000 
+      });
+      console.log('[Scraper] Page loaded');
+    } catch (error) {
+      console.error('[Scraper] Navigation failed:', error);
+      throw new Error(`Failed to navigate to ${url}: ${error}`);
+    }
 
     // Wait for content to render
     await page.waitForTimeout(3000);
@@ -205,9 +238,13 @@ export async function scrapeUrl(url: string): Promise<{
     }));
 
     await context.close();
+    console.log('[Scraper] Context closed');
 
     return { pageTitle, content };
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close();
+      console.log('[Scraper] Browser closed');
+    }
   }
 }
