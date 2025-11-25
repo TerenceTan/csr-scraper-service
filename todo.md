@@ -107,3 +107,9 @@
 - [x] Fix nullable username/password TypeScript errors
 - [x] Verify tRPC API is working correctly (SUCCESS!)
 - [x] Test that homepage loads without errors (SUCCESS!)
+
+## Bug Fixes - Excel Export Duplicate Worksheet Names
+- [ ] Investigate duplicate worksheet name error in Excel export
+- [ ] Ensure worksheet names are unique by adding index or truncating differently
+- [ ] Test Excel export with multiple pages having similar titles
+- [ ] Verify fix works correctly
