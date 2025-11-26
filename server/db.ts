@@ -234,7 +234,11 @@ import { desc } from "drizzle-orm";
 /**
  * Create a new scraping job
  */
-export async function createScrapingJob(userId: number, totalUrls: number): Promise<number> {
+export async function createScrapingJob(
+  userId: number,
+  totalUrls: number,
+  scrapingMode: "main" | "header" | "footer" = "main"
+): Promise<number> {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
@@ -243,7 +247,10 @@ export async function createScrapingJob(userId: number, totalUrls: number): Prom
   const result = await db.insert(scrapingJobs).values({
     userId,
     totalUrls,
+    scrapingMode,
     status: "pending",
+    completedUrls: 0,
+    failedUrls: 0,
   });
 
   return Number(result.lastInsertRowid);

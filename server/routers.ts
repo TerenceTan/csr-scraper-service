@@ -83,13 +83,16 @@ export const appRouter = router({
   scraping: router({
     // Start a new scraping job
     startJob: publicProcedure
-      .input(z.object({ urls: z.array(z.string().url()) }))
+      .input(z.object({
+        urls: z.array(z.string().url()),
+        scrapingMode: z.enum(["main", "header", "footer"]).default("main")
+      }))
       .mutation(async ({ input }) => {
-        const { urls } = input;
+        const { urls, scrapingMode } = input;
         const userId = 1; // Default user ID since auth is removed
 
         // Create scraping job
-        const jobId = await db.createScrapingJob(userId, urls.length);
+        const jobId = await db.createScrapingJob(userId, urls.length, scrapingMode);
 
         // Create page entries
         for (const url of urls) {

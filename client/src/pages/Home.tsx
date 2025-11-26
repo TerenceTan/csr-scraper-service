@@ -12,6 +12,7 @@ import { Link } from "wouter";
 export default function Home() {
   const [urls, setUrls] = useState("");
   const [urlValidation, setUrlValidation] = useState<{ valid: boolean; invalid: boolean }>({ valid: false, invalid: false });
+  const [scrapingMode, setScrapingMode] = useState<"main" | "header" | "footer">("main");
 
   // Validate URLs when input changes
   const validateUrls = (input: string) => {
@@ -95,7 +96,7 @@ export default function Home() {
       return;
     }
 
-    startJobMutation.mutate({ urls: urlList });
+    startJobMutation.mutate({ urls: urlList, scrapingMode });
   };
 
 
@@ -146,32 +147,21 @@ export default function Home() {
                   className={`font-mono text-sm pr-10 ${urlValidation.invalid ? 'border-red-300 focus:border-red-500' : urlValidation.valid ? 'border-green-300 focus:border-green-500' : ''}`}
                 />
                 {urlValidation.valid && (
-                  <CheckCircle2 className="absolute top-3 right-3 h-5 w-5 text-green-600" />
-                )}
-                {urlValidation.invalid && (
-                  <XCircle className="absolute top-3 right-3 h-5 w-5 text-red-600" />
-                )}
-              </div>
-              {urlValidation.invalid && (
-                <p className="text-sm text-red-600">Some URLs are invalid. Please check the format (must start with http:// or https://)</p>
-              )}
-              <Button
-                onClick={handleStartScraping}
-                disabled={startJobMutation.isPending || !urls.trim()}
-                className="w-full"
-                size="lg"
-              >
-                {startJobMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Start Scraping
-                  </>
-                )}
+                  size = "lg"
+                  >
+                  {
+                    startJobMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Starting...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Start Scraping
+                      </>
+                    )
+                  }
               </Button>
             </CardContent>
           </Card>

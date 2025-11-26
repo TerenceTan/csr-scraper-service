@@ -33,6 +33,7 @@ export const scrapingJobs = sqliteTable("scraping_jobs", {
   status: text("status", { enum: ["pending", "processing", "completed", "failed"] }).default("pending").notNull(),
   totalUrls: integer("total_urls").notNull(),
   completedUrls: integer("completed_urls").default(0).notNull(),
+  scrapingMode: text("scraping_mode", { enum: ["main", "header", "footer"] }).default("main").notNull(),
   failedUrls: integer("failed_urls").default(0).notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).defaultNow().notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow().notNull(),
