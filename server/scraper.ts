@@ -1,27 +1,21 @@
 /**
- * Scraper module using Browserless.io for production scraping
+ * Scraper module - Enhanced version with formatting preservation
  */
 import { chromium } from 'playwright-core';
 import { ENV } from './_core/env';
 
 const BROWSERLESS_API_KEY = ENV.browserlessApiKey;
 
-/**
- * Check if Browserless is configured
- */
 function isBrowserlessConfigured(): boolean {
   return Boolean(BROWSERLESS_API_KEY);
 }
 
-/**
- * Get Browserless WebSocket endpoint
- */
 function getBrowserlessEndpoint(): string {
   return `wss://production-sfo.browserless.io?token=${BROWSERLESS_API_KEY}`;
 }
 
 /**
- * Extract visible text content from a page in sequential HTML order
+ * Extract visible text content from a page - now with formatting preservation
  */
 async function extractContent(page: any) {
   const extractionScript = `
@@ -31,91 +25,104 @@ async function extractContent(page: any) {
       const processedTexts = new Set();
 
       const isVisible = (element) => {
+        const isInAccordion = element.closest('.ant-collapse-content, [role="region"]');
+        if (isInAccordion) return true;
+        
         const style = window.getComputedStyle(element);
-        // Simplified visibility check - offsetParent can be null for visible elements
-        // with position:fixed or CSS transforms
-        return (
-          style.display !== 'none' &&
-          style.visibility !== 'hidden'
-        );
+        return style.display !== 'none' && style.visibility !== 'hidden';
       };
 
       const getCleanText = (element) => {
         return element.textContent?.trim() || '';
       };
+      
+      const getFormattedText = (element) => {
+        const clone = element.cloneNode(true);
+        clone.querySelectorAll('script, style').forEach(el => el.remove());
+        
+        let html = clone.innerHTML || '';
+        
+        // Convert block elements to newlines
+        html = html.replace(/<br\\s*\\/?>/gi, '\\n');
+        html = html.replace(/<\\/(?:div|p|li|h[1-6])>/gi, '\\n');
+        
+        // Remove all tags except formatting ones
+        const keepTags = 'strong|b|em|i|u|mark';
+        html = html.replace(new RegExp('<(?!\/?' + '(' + keepTags + '))[^>]+>', 'gi'), '');
+        html = html.replace(new RegExp('<\\/(?!' + '(' + keepTags + '))[^>]+>', 'gi'), '');
+        
+        html = html.replace(/\\n\\s*\\n/g, '\\n').trim();
+        return html || element.textContent?.trim() || '';
+      };
 
-      // Check if element is likely navigation or footer content
       const isNavigationOrFooter = (element) => {
         const tagName = element.tagName.toLowerCase();
         
-        // Skip nav, header, footer tags
-        if (['nav', 'header', 'footer'].includes(tagName)) {
-          return true;
+        if (['nav', 'footer'].includes(tagName)) return true;
+        
+        if (tagName === 'header') {
+          const testId = element.getAttribute('data-testid') || '';
+          const className = typeof element.className === 'string' ? element.className : '';
+          const id = element.id || '';
+          
+          // Allow container-header__content (page content), block navigation headers
+          if (className.includes('container-header__content')) return false;
+          
+          if (testId.includes('nav') || className.includes('nav') || id.includes('nav')) {
+            return true;
+          }
+          // Only block if it's a top-level header (not content header)
+          if (testId.includes('header') || id.includes('header') || className.includes('global-header')) {
+            return true;
+          }
+          return false;
         }
         
-        // Check for specific data-testid attributes to exclude
         const testId = element.getAttribute('data-testid') || '';
-        if (testId === 'pui-disclaimer-banner' || testId === 'pui-live-pricing' || testId === 'pui-cookies') {
+        if (testId === 'pui-disclaimer-banner' || testId === 'pui-live-pricing' || testId === 'pui-cookies' ||
+            testId === 'pui-gn-btn-default' || testId === 'pui-gn-btn-text' || 
+            testId === 'pui-language-selector' || testId === 'top-nav-component' ||
+            testId === 'mobile-top-nav-component' || testId === 'pui-sub-navigation' || testId === 'pui-breadcrumb') {
           return true;
         }
         
-        // Check for common navigation/footer class names and IDs
         const className = typeof element.className === 'string' ? element.className : '';
         const id = element.id || '';
-        const combinedText = (className + ' ' + id).toLowerCase();
         
+        if (className.includes('global-nav-button-decor')) return true;
+        
+        const combinedText = (className + ' ' + id).toLowerCase();
         const navFooterPatterns = [
-          'nav', 'menu', 'header', 'footer', 'sidebar', 'breadcrumb',
-          'cookie', 'banner', 'toolbar', 'topbar', 'bottombar'
+          'global-nav', 'top-nav', 'main-nav', 'primary-nav',
+          'footer', 'sidebar', 'breadcrumb',
+          'cookie', 'toolbar', 'topbar', 'bottombar'
         ];
         
         return navFooterPatterns.some(pattern => combinedText.includes(pattern));
       };
 
-      // Find main content area
       const findMainContent = () => {
-        // Try to find main content container
         const mainSelectors = [
-          'main',
-          'article',
-          '[role="main"]',
-          '.main-content',
-          '.content',
-          '#content',
-          '#main'
+          'main', 'article', '[role="main"]',
+          '.main-content', '.content', '#content', '#main'
         ];
         
         for (const selector of mainSelectors) {
           const element = document.querySelector(selector);
-          if (element) {
-            return element;
-          }
+          if (element) return element;
         }
-        
-        // Fallback to body if no main content found
         return document.body;
       };
 
-      // Traverse DOM tree in document order (depth-first)
       const traverse = (element) => {
         if (!element || !element.tagName) return;
         
-        // Skip script, style, and hidden elements
         const tagName = element.tagName.toLowerCase();
-        if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) {
-          return;
-        }
+        if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) return;
+        if (!isVisible(element)) return;
+        if (isNavigationOrFooter(element)) return;
 
-        if (!isVisible(element)) {
-          return;
-        }
-        
-        // Skip navigation and footer content
-        if (isNavigationOrFooter(element)) {
-          return;
-        }
-
-        // Handle tables separately
+        // Tables
         if (tagName === 'table') {
           const rows = element.querySelectorAll('tr');
           if (rows.length > 0) {
@@ -144,29 +151,89 @@ async function extractContent(page: any) {
               }
             }
           }
-          // Don't traverse children of table (already processed)
           return;
         }
 
-        // Elements we want to capture
-        const captureElements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li'];
+        // Regular elements
+        const captureElements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'header'];
         
         if (captureElements.includes(tagName)) {
           const text = getCleanText(element);
+          const formattedText = getFormattedText(element);
+          
           if (text && text.length > 0 && !processedTexts.has(text)) {
             processedTexts.add(text);
             result.push({
-              sectionType: tagName,
-              sectionTitle: tagName.startsWith('h') ? text : null,
-              content: text,
+              sectionType: tagName === 'header' ? 'section-header' : tagName,
+              sectionTitle: tagName.startsWith('h') || tagName === 'header' ? text : null,
+              content: formattedText,
               orderIndex: orderIndex++,
             });
           }
-          // Don't traverse children of these elements (already captured their text)
           return;
         }
+        
+        // Accordion headers
+        const className = typeof element.className === 'string' ? element.className : '';
+        if (className.includes('ant-collapse-header')) {
+          const text = getCleanText(element);
+          const formattedText = getFormattedText(element);
+          
+          if (text && text.length > 0 && !processedTexts.has(text)) {
+            processedTexts.add(text);
+            result.push({
+              sectionType: 'accordion-header',
+              sectionTitle: text,
+              content: formattedText,
+              orderIndex: orderIndex++,
+            });
+          }
+          return;
+        }
+        
+        // Buttons and links
+        if (['button', 'a'].includes(tagName)) {
+          const text = getCleanText(element);
+          const formattedText = getFormattedText(element);
+          
+          if (text && text.length > 10 && !processedTexts.has(text)) {
+            processedTexts.add(text);
+            result.push({
+              sectionType: tagName,
+              sectionTitle: null,
+              content: tagName === 'a' ? '<u>' + formattedText + '</u>' : formattedText, // Underline links
+              orderIndex: orderIndex++,
+            });
+          }
+          return;
+        }
+        
+        // Direct div text
+        if (tagName === 'div') {
+          let directText = '';
+          let directHTML = '';
+          
+          for (const node of element.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              directText += node.textContent?.trim() || '';
+            } else if (node.nodeType === Node.ELEMENT_NODE && ['STRONG', 'B', 'EM', 'I', 'U', 'MARK'].includes(node.tagName)) {
+              directHTML += node.outerHTML;
+              directText += node.textContent?.trim() || '';
+            }
+          }
+          
+          if (directText && directText.length > 10 && !processedTexts.has(directText)) {
+            processedTexts.add(directText);
+            result.push({
+              sectionType: 'div-text',
+              sectionTitle: null,
+              content: directHTML || directText,
+              orderIndex: orderIndex++,
+            });
+          }
+        }
 
-        // Recursively traverse children for other elements
+        // Traverse children
         if (element.children) {
           for (let i = 0; i < element.children.length; i++) {
             traverse(element.children[i]);
@@ -174,11 +241,8 @@ async function extractContent(page: any) {
         }
       };
 
-      // Start traversal from main content area
       const mainContent = findMainContent();
-      if (mainContent) {
-        traverse(mainContent);
-      }
+      if (mainContent) traverse(mainContent);
 
       return result;
     })()
@@ -187,9 +251,6 @@ async function extractContent(page: any) {
   return await page.evaluate(extractionScript);
 }
 
-/**
- * Scrape a single URL using Browserless
- */
 export async function scrapeUrl(url: string): Promise<{
   pageTitle: string;
   content: Array<{
@@ -201,9 +262,7 @@ export async function scrapeUrl(url: string): Promise<{
   }>;
 }> {
   if (!isBrowserlessConfigured()) {
-    throw new Error(
-      'Browserless not configured. Please set BROWSERLESS_API_KEY environment variable.'
-    );
+    throw new Error('Browserless not configured. Please set BROWSERLESS_API_KEY environment variable.');
   }
 
   console.log('[Scraper] Connecting to Browserless...');
@@ -218,37 +277,21 @@ export async function scrapeUrl(url: string): Promise<{
     const page = await context.newPage();
 
     console.log(`[Scraper] Navigating to ${url}...`);
-    await page.goto(url, { 
+    await page.goto(url, {
       waitUntil: 'domcontentloaded',
-      timeout: 60000 
+      timeout: 60000
     });
     console.log('[Scraper] Page loaded');
 
-    // Wait for content to render
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
 
-    // Force expandable content to be visible
-    await page.evaluate(() => {
-      const expandableBanners = document.querySelectorAll('[data-testid="pui-expendable-banner"]');
-      expandableBanners.forEach(banner => {
-        if (banner instanceof HTMLElement) {
-          banner.style.opacity = '1';
-          banner.style.visibility = 'visible';
-          banner.style.display = 'block';
-        }
-      });
-    });
-
-    // Get page title
     const pageTitle = await page.title();
     console.log(`[Scraper] Page title: ${pageTitle}`);
 
-    // Extract content
     console.log('[Scraper] Extracting content...');
     const rawContent = await extractContent(page);
     console.log(`[Scraper] Extracted ${rawContent.length} sections`);
 
-    // Add character count
     const content = rawContent.map((section: any) => ({
       ...section,
       charCount: section.content.length,

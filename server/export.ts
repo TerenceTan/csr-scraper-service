@@ -41,15 +41,83 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
     // Sort content by orderIndex to maintain page sequence
     const sortedContent = [...page.content].sort((a, b) => a.orderIndex - b.orderIndex);
 
+    // Helper function to convert HTML to Excel rich text
+    const htmlToRichText = (html: string): ExcelJS.RichText[] => {
+      const richText: ExcelJS.RichText[] = [];
+
+      // Simple parser for HTML tags
+      const regex = /<(\/?)(\w+)>/g;
+      let lastIndex = 0;
+      let currentFormatting: { bold?: boolean; italic?: boolean; underline?: boolean } = {};
+      const formatStack: Array<{ tag: string; formatting: typeof currentFormatting }> = [];
+
+      let match;
+      while ((match = regex.exec(html)) !== null) {
+        // Add text before tag
+        if (match.index > lastIndex) {
+          const text = html.substring(lastIndex, match.index);
+          if (text) {
+            richText.push({
+              text: text,
+              font: { ...currentFormatting }
+            });
+          }
+        }
+
+        const isClosing = match[1] === '/';
+        const tag = match[2].toLowerCase();
+
+        if (!isClosing) {
+          // Opening tag - save current formatting and apply new
+          formatStack.push({ tag, formatting: { ...currentFormatting } });
+
+          if (tag === 'strong' || tag === 'b') {
+            currentFormatting.bold = true;
+          } else if (tag === 'em' || tag === 'i') {
+            currentFormatting.italic = true;
+          } else if (tag === 'u') {
+            currentFormatting.underline = true;
+          }
+        } else {
+          // Closing tag - restore formatting
+          const stackItem = formatStack.pop();
+          if (stackItem) {
+            currentFormatting = stackItem.formatting;
+          }
+        }
+
+        lastIndex = regex.lastIndex;
+      }
+
+      // Add remaining text
+      if (lastIndex < html.length) {
+        const text = html.substring(lastIndex);
+        if (text) {
+          richText.push({
+            text: text,
+            font: { ...currentFormatting }
+          });
+        }
+      }
+
+      return richText.length > 0 ? richText : [{ text: html }];
+    };
+
     // Add data rows
     sortedContent.forEach((section, index) => {
-      worksheet.addRow({
-        order: index + 1, // Sequential order starting from 1
-        tag: section.sectionType, // HTML tag name (h1, h2, p, li, etc.)
-        sourceText: section.content,
+      const row = worksheet.addRow({
+        order: index + 1,
+        tag: section.sectionType,
+        sourceText: '', // Will set richText below
         charCount: section.charCount,
-        translation: '', // Empty column for translator to fill
+        translation: '',
       });
+
+      // Apply rich text formatting to source text
+      const sourceCell = row.getCell('sourceText');
+      sourceCell.value = {
+        richText: htmlToRichText(section.content)
+      };
     });
 
     // Auto-fit columns (with min/max limits)
@@ -94,7 +162,7 @@ export async function generateCSV(jobId: number): Promise<string> {
   for (const page of pagesWithContent) {
     // Sort content by orderIndex to maintain page sequence
     const sortedContent = [...page.content].sort((a, b) => a.orderIndex - b.orderIndex);
-    
+
     sortedContent.forEach((section, index) => {
       rows.push([
         page.url,

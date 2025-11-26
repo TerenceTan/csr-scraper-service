@@ -1,29 +1,24 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
-export const users = mysqlTable("users", {
+export const users = sqliteTable("users", {
   /**
    * Surrogate primary key. Auto-incremented numeric value managed by the database.
    * Use this for relations between tables.
    */
-  id: int("id").autoincrement().primaryKey(),
+  id: integer("id").primaryKey({ autoIncrement: true }),
   /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
-  openId: varchar("openId", { length: 64 }).unique(),
+  openId: text("openId").unique(),
   /** Username for login (optional for OAuth users) */
-  username: varchar("username", { length: 64 }).unique(),
+  username: text("username").unique(),
   /** Hashed password (optional for OAuth users) */
-  password: varchar("password", { length: 255 }),
+  password: text("password"),
   name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  email: text("email"),
+  loginMethod: text("loginMethod"),
+  role: text("role", { enum: ["user", "admin"] }).default("user").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).defaultNow().notNull(),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).defaultNow().notNull(),
+  lastSignedIn: integer("lastSignedIn", { mode: "timestamp" }).defaultNow().notNull(),
 });
 
 export type User = typeof users.$inferSelect;
@@ -32,15 +27,15 @@ export type InsertUser = typeof users.$inferInsert;
 /**
  * Scraping jobs table - tracks each scraping session
  */
-export const scrapingJobs = mysqlTable("scraping_jobs", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("user_id").notNull(),
-  status: mysqlEnum("status", ["pending", "processing", "completed", "failed"]).default("pending").notNull(),
-  totalUrls: int("total_urls").notNull(),
-  completedUrls: int("completed_urls").default(0).notNull(),
-  failedUrls: int("failed_urls").default(0).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+export const scrapingJobs = sqliteTable("scraping_jobs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull(),
+  status: text("status", { enum: ["pending", "processing", "completed", "failed"] }).default("pending").notNull(),
+  totalUrls: integer("total_urls").notNull(),
+  completedUrls: integer("completed_urls").default(0).notNull(),
+  failedUrls: integer("failed_urls").default(0).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).defaultNow().notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow().notNull(),
 });
 
 export type ScrapingJob = typeof scrapingJobs.$inferSelect;
@@ -49,15 +44,15 @@ export type InsertScrapingJob = typeof scrapingJobs.$inferInsert;
 /**
  * Scraped pages table - stores content from each URL
  */
-export const scrapedPages = mysqlTable("scraped_pages", {
-  id: int("id").autoincrement().primaryKey(),
-  jobId: int("job_id").notNull(),
+export const scrapedPages = sqliteTable("scraped_pages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: integer("job_id").notNull(),
   url: text("url").notNull(),
   pageTitle: text("page_title"),
-  status: mysqlEnum("status", ["pending", "scraping", "completed", "failed"]).default("pending").notNull(),
+  status: text("status", { enum: ["pending", "scraping", "completed", "failed"] }).default("pending").notNull(),
   errorMessage: text("error_message"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).defaultNow().notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow().notNull(),
 });
 
 export type ScrapedPage = typeof scrapedPages.$inferSelect;
@@ -66,17 +61,17 @@ export type InsertScrapedPage = typeof scrapedPages.$inferInsert;
 /**
  * Content sections table - stores extracted text organized by sections
  */
-export const contentSections = mysqlTable("content_sections", {
-  id: int("id").autoincrement().primaryKey(),
-  pageId: int("page_id").notNull(),
-  sectionType: varchar("section_type", { length: 50 }).notNull(), // h1, h2, h3, p, etc.
+export const contentSections = sqliteTable("content_sections", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pageId: integer("page_id").notNull(),
+  sectionType: text("section_type").notNull(), // h1, h2, h3, p, etc.
   sectionTitle: text("section_title"),
   content: text("content").notNull(),
-  orderIndex: int("order_index").notNull(),
-  charCount: int("char_count").notNull(),
+  orderIndex: integer("order_index").notNull(),
+  charCount: integer("char_count").notNull(),
   context: text("context"), // additional context for translators
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).defaultNow().notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).defaultNow().notNull(),
 });
 
 export type ContentSection = typeof contentSections.$inferSelect;

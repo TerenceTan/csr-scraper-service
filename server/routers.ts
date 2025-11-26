@@ -120,7 +120,15 @@ export const appRouter = router({
     // Get all jobs for current user
     listJobs: publicProcedure.query(async () => {
       const userId = 1; // Default user ID since auth is removed
-      return await db.getUserScrapingJobs(userId);
+      const jobs = await db.getUserScrapingJobs(userId);
+
+      // Ensure timestamps are numbers (SQLite returns them as is, which should work)
+      // But let's make sure they're properly formatted
+      return jobs.map(job => ({
+        ...job,
+        createdAt: typeof job.createdAt === 'number' ? job.createdAt : new Date(job.createdAt).getTime(),
+        updatedAt: typeof job.updatedAt === 'number' ? job.updatedAt : new Date(job.updatedAt).getTime(),
+      }));
     }),
 
     // Delete a job

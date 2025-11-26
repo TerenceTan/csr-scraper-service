@@ -20,11 +20,11 @@ export default function Home() {
       setUrlValidation({ valid: false, invalid: false });
       return;
     }
-    
+
     const urlPattern = /^https?:\/\/.+/;
     const allValid = lines.every(line => urlPattern.test(line.trim()));
     const someInvalid = lines.some(line => !urlPattern.test(line.trim()));
-    
+
     setUrlValidation({ valid: allValid, invalid: someInvalid });
   };
 
@@ -220,7 +220,7 @@ export default function Home() {
                             {job.failedUrls > 0 && ` • ${job.failedUrls} failed`}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            {new Date(job.createdAt).toLocaleString()}
+                            {new Date(Number(job.createdAt)).toLocaleString()}
                           </div>
                         </div>
                       </Link>

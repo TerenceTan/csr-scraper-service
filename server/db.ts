@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import Database from "better-sqlite3";
 import { InsertUser, users } from "../drizzle/schema";
 import bcrypt from "bcryptjs";
 
@@ -9,7 +10,11 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Extract path from "file:./sqlite.db" or just use the path
+      const url = process.env.DATABASE_URL;
+      const path = url.startsWith("file:") ? url.slice(5) : url;
+      const sqlite = new Database(path);
+      _db = drizzle(sqlite);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -199,7 +204,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -240,7 +246,7 @@ export async function createScrapingJob(userId: number, totalUrls: number): Prom
     status: "pending",
   });
 
-  return Number(result[0].insertId);
+  return Number(result.lastInsertRowid);
 }
 
 /**
@@ -313,7 +319,7 @@ export async function createScrapedPage(jobId: number, url: string): Promise<num
     status: "pending",
   });
 
-  return Number(result[0].insertId);
+  return Number(result.lastInsertRowid);
 }
 
 /**
