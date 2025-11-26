@@ -1,0 +1,1 @@
+ALTER TABLE `scraping_jobs` ADD `scraping_mode` text DEFAULT 'main' NOT NULL;

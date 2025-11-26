@@ -1,5 +1,5 @@
 /**
- * Scraper module - Enhanced version with formatting preservation
+ * Scraper module - Enhanced version with formatting preservation and mode selection
  */
 import { chromium } from 'playwright-core';
 import { ENV } from './_core/env';
@@ -15,11 +15,12 @@ function getBrowserlessEndpoint(): string {
 }
 
 /**
- * Extract visible text content from a page - now with formatting preservation
+ * Extract visible text content from a page - now with formatting preservation and mode selection
  */
-async function extractContent(page: any) {
+async function extractContent(page: any, scrapingMode: string) {
   const extractionScript = `
     (() => {
+      const scrapingMode = '${scrapingMode}';
       const result = [];
       let orderIndex = 0;
       const processedTexts = new Set();
@@ -130,7 +131,9 @@ async function extractContent(page: any) {
         const tagName = element.tagName.toLowerCase();
         if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) return;
         if (!isVisible(element)) return;
-        if (isNavigationOrFooter(element)) return;
+        
+        // Only check isNavigationOrFooter if we are in 'main' mode
+        if (scrapingMode === 'main' && isNavigationOrFooter(element)) return;
 
         // Tables
         if (tagName === 'table') {
@@ -251,8 +254,31 @@ async function extractContent(page: any) {
         }
       };
 
-      const mainContent = findMainContent();
-      if (mainContent) traverse(mainContent);
+      if (scrapingMode === 'header') {
+        // First check for specific Pepperstone header class
+        const psHeaders = document.querySelectorAll('.ps-grid-in-header');
+        if (psHeaders.length > 0) {
+            psHeaders.forEach(header => traverse(header));
+        } else {
+            // Fallback to standard headers
+            const headers = document.querySelectorAll('header, [role="banner"], .global-header, .header');
+            if (headers.length > 0) {
+                headers.forEach(header => traverse(header));
+            } else {
+                traverse(document.body);
+            }
+        }
+      } else if (scrapingMode === 'footer') {
+        const footers = document.querySelectorAll('footer, [role="contentinfo"], .global-footer, .footer');
+        if (footers.length > 0) {
+            footers.forEach(footer => traverse(footer));
+        } else {
+            traverse(document.body);
+        }
+      } else {
+        const mainContent = findMainContent();
+        if (mainContent) traverse(mainContent);
+      }
 
       return result;
     })()
@@ -261,7 +287,10 @@ async function extractContent(page: any) {
   return await page.evaluate(extractionScript);
 }
 
-export async function scrapeUrl(url: string): Promise<{
+export async function scrapeUrl(
+  url: string,
+  scrapingMode: "main" | "header" | "footer" = "main"
+): Promise<{
   pageTitle: string;
   content: Array<{
     sectionType: string;
@@ -286,7 +315,7 @@ export async function scrapeUrl(url: string): Promise<{
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    console.log(`[Scraper] Navigating to ${url}...`);
+    console.log(`[Scraper] Navigating to ${url} with mode ${scrapingMode}...`);
     await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout: 60000
@@ -299,7 +328,7 @@ export async function scrapeUrl(url: string): Promise<{
     console.log(`[Scraper] Page title: ${pageTitle}`);
 
     console.log('[Scraper] Extracting content...');
-    const rawContent = await extractContent(page);
+    const rawContent = await extractContent(page, scrapingMode);
     console.log(`[Scraper] Extracted ${rawContent.length} sections`);
 
     const content = rawContent.map((section: any) => ({

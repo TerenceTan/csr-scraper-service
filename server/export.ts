@@ -21,18 +21,31 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
 
     const worksheet = workbook.addWorksheet(sheetName);
 
+    // Add Page URL at the top
+    worksheet.addRow(['Page URL:', page.url]);
+    worksheet.addRow([]); // Empty spacer row
+
     // Add header row with new structure
+    const headerRow = worksheet.addRow([
+      'Order',
+      'Tag',
+      'Source Text',
+      'Char Count',
+      'Translation'
+    ]);
+
+    // Set column widths
     worksheet.columns = [
-      { header: 'Order', key: 'order', width: 8 },
-      { header: 'Tag', key: 'tag', width: 10 },
-      { header: 'Source Text', key: 'sourceText', width: 50 },
-      { header: 'Char Count', key: 'charCount', width: 12 },
-      { header: 'Translation', key: 'translation', width: 50 },
+      { key: 'order', width: 8 },
+      { key: 'tag', width: 10 },
+      { key: 'sourceText', width: 50 },
+      { key: 'charCount', width: 12 },
+      { key: 'translation', width: 50 },
     ];
 
-    // Style header row
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(1).fill = {
+    // Style header row (now row 3)
+    headerRow.font = { bold: true };
+    headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: 'FFE0E0E0' },

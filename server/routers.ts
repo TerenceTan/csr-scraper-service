@@ -16,6 +16,10 @@ async function processScraping(jobId: number) {
     // Update job status to processing
     await db.updateScrapingJobStatus(jobId, "processing");
 
+    // Get job details to know the mode
+    const job = await db.getScrapingJob(jobId);
+    const scrapingMode = job?.scrapingMode || "main";
+
     // Get all pages for this job
     const pages = await db.getJobPages(jobId);
 
@@ -29,7 +33,7 @@ async function processScraping(jobId: number) {
         await db.updateScrapedPage(page.id, { status: "scraping" });
 
         // Scrape the URL
-        const { pageTitle, content } = await scrapeUrl(page.url);
+        const { pageTitle, content } = await scrapeUrl(page.url, scrapingMode as any);
 
         // Update page with title and status
         await db.updateScrapedPage(page.id, {
