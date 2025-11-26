@@ -211,7 +211,7 @@ export default function JobDetail() {
                 <CollapsibleContent>
                   <CardContent className="space-y-3">
                     {page.content?.sort((a, b) => a.orderIndex - b.orderIndex).map((section, index) => (
-                        <div key={section.id} className="border rounded-lg p-4 bg-white">
+                      <div key={section.id} className="border rounded-lg p-4 bg-white">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
@@ -263,9 +263,10 @@ export default function JobDetail() {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                            {section.content}
-                          </p>
+                          <div
+                            className="text-sm text-gray-700 whitespace-pre-wrap"
+                            dangerouslySetInnerHTML={{ __html: section.content }}
+                          />
                         )}
                       </div>
                     ))}
