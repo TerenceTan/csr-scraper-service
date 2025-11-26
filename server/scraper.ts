@@ -42,13 +42,23 @@ async function extractContent(page: any) {
         
         let html = clone.innerHTML || '';
         
+        // Convert HTML entities to spaces
+        html = html.replace(/&nbsp;/g, ' ');
+        html = html.replace(/&amp;/g, '&');
+        html = html.replace(/&lt;/g, '<');
+        html = html.replace(/&gt;/g, '>');
+        html = html.replace(/&quot;/g, '"');
+        
         // Convert block elements to newlines
         html = html.replace(/<br\\s*\\/?>/gi, '\\n');
         html = html.replace(/<\\/(?:div|p|li|h[1-6])>/gi, '\\n');
         
-        // Remove all tags except formatting ones
-        const keepTags = 'strong|b|em|i|u|mark';
-        html = html.replace(new RegExp('<(?!\/?' + '(' + keepTags + '))[^>]+>', 'gi'), '');
+        // Remove italic tags completely
+        html = html.replace(/<\\/?(?:em|i)>/gi, '');
+        
+        // Remove all tags except strong, b, u, mark
+        const keepTags = 'strong|b|u|mark';
+        html = html.replace(new RegExp('<(?!\\/?' + '(' + keepTags + '))[^>]+>', 'gi'), '');
         html = html.replace(new RegExp('<\\/(?!' + '(' + keepTags + '))[^>]+>', 'gi'), '');
         
         html = html.replace(/\\n\\s*\\n/g, '\\n').trim();
@@ -201,7 +211,7 @@ async function extractContent(page: any) {
             result.push({
               sectionType: tagName,
               sectionTitle: null,
-              content: tagName === 'a' ? '<u>' + formattedText + '</u>' : formattedText, // Underline links
+              content: tagName === 'a' ? '<u>' + formattedText + '</u>' : formattedText,
               orderIndex: orderIndex++,
             });
           }

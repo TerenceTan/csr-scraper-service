@@ -45,10 +45,14 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
     const htmlToRichText = (html: string): ExcelJS.RichText[] => {
       const richText: ExcelJS.RichText[] = [];
 
+      // Convert HTML entities
+      html = html.replace(/&nbsp;/g, ' ');
+      html = html.replace(/&amp;/g, '&');
+
       // Simple parser for HTML tags
       const regex = /<(\/?)(\w+)>/g;
       let lastIndex = 0;
-      let currentFormatting: { bold?: boolean; italic?: boolean; underline?: boolean } = {};
+      let currentFormatting: { bold?: boolean; underline?: boolean } = {};
       const formatStack: Array<{ tag: string; formatting: typeof currentFormatting }> = [];
 
       let match;
@@ -73,11 +77,10 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
 
           if (tag === 'strong' || tag === 'b') {
             currentFormatting.bold = true;
-          } else if (tag === 'em' || tag === 'i') {
-            currentFormatting.italic = true;
           } else if (tag === 'u') {
             currentFormatting.underline = true;
           }
+          // em and i tags are ignored (already removed by scraper)
         } else {
           // Closing tag - restore formatting
           const stackItem = formatStack.pop();
