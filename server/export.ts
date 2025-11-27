@@ -30,7 +30,7 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
       'Order',
       'Tag',
       'Source Text',
-      'Char Count',
+      'Word Count',
       'Translation'
     ]);
 
@@ -39,7 +39,7 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
       { key: 'order', width: 8 },
       { key: 'tag', width: 10 },
       { key: 'sourceText', width: 50 },
-      { key: 'charCount', width: 12 },
+      { key: 'wordCount', width: 12 },
       { key: 'translation', width: 50 },
     ];
 
@@ -121,11 +121,14 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
 
     // Add data rows
     sortedContent.forEach((section, index) => {
+      // Calculate word count
+      const wordCount = section.content.trim() ? section.content.trim().split(/\s+/).length : 0;
+
       const row = worksheet.addRow({
         order: index + 1,
         tag: section.sectionType,
         sourceText: '', // Will set richText below
-        charCount: section.charCount,
+        wordCount: wordCount,
         translation: '',
       });
 
@@ -170,7 +173,7 @@ export async function generateCSV(jobId: number): Promise<string> {
     'Order',
     'Tag',
     'Source Text',
-    'Char Count',
+    'Word Count',
     'Translation',
   ]);
 
@@ -180,12 +183,15 @@ export async function generateCSV(jobId: number): Promise<string> {
     const sortedContent = [...page.content].sort((a, b) => a.orderIndex - b.orderIndex);
 
     sortedContent.forEach((section, index) => {
+      // Calculate word count
+      const wordCount = section.content.trim() ? section.content.trim().split(/\s+/).length : 0;
+
       rows.push([
         page.url,
         (index + 1).toString(), // Sequential order starting from 1
         section.sectionType, // HTML tag name
         section.content,
-        section.charCount.toString(),
+        wordCount.toString(),
         '', // Empty for translation
       ]);
     });
