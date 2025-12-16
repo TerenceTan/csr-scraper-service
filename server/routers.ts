@@ -48,7 +48,7 @@ async function processScraping(jobId: number) {
             sectionTitle: section.sectionTitle,
             content: section.content,
             orderIndex: section.orderIndex,
-            charCount: section.charCount,
+            charCount: section.content.length,
           });
         }
 

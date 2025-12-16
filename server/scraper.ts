@@ -5,107 +5,92 @@ import { chromium } from 'playwright-core';
 import { ENV } from './_core/env';
 
 const BROWSERLESS_API_KEY = ENV.browserlessApiKey;
+const BROWSERLESS_URL = `wss://production-sfo.browserless.io?token=${BROWSERLESS_API_KEY}`;
 
-function isBrowserlessConfigured(): boolean {
-  return Boolean(BROWSERLESS_API_KEY);
+export interface ScrapedSection {
+  sectionType: string;
+  sectionTitle: string | null;
+  content: string;
+  orderIndex: number;
 }
 
-function getBrowserlessEndpoint(): string {
-  return `wss://production-sfo.browserless.io?token=${BROWSERLESS_API_KEY}`;
-}
-
-/**
- * Extract visible text content from a page - now with formatting preservation and mode selection
- */
-async function extractContent(page: any, scrapingMode: string) {
-  const extractionScript = `
-    (() => {
-      const scrapingMode = '${scrapingMode}';
+// Define the extraction logic as a string to avoid esbuild instrumentation (ReferenceError: __name is not defined)
+const EXTRACT_CONTENT_SCRIPT = `
+  window.extractContent = function({ scrapingMode, livePricingData }) {
       const result = [];
-      let orderIndex = 0;
       const processedTexts = new Set();
+      let orderIndex = 0;
 
-      const isVisible = (element) => {
-        const isInAccordion = element.closest('.ant-collapse-content, [role="region"]');
-        if (isInAccordion) return true;
-        
-        const style = window.getComputedStyle(element);
-        return style.display !== 'none' && style.visibility !== 'hidden';
+      const isVisible = (elem) => {
+        if (!elem) return false;
+        const style = window.getComputedStyle(elem);
+        return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
       };
 
       const getCleanText = (element) => {
-        return element.textContent?.trim() || '';
+        return element.innerText?.replace(/\\s+/g, ' ').trim();
       };
       
       const getFormattedText = (element) => {
-        const clone = element.cloneNode(true);
-        clone.querySelectorAll('script, style').forEach(el => el.remove());
-        
-        let html = clone.innerHTML || '';
-        
-        // Convert HTML entities to spaces
-        html = html.replace(/&nbsp;/g, ' ');
-        html = html.replace(/&amp;/g, '&');
-        html = html.replace(/&lt;/g, '<');
-        html = html.replace(/&gt;/g, '>');
-        html = html.replace(/&quot;/g, '"');
-        
-        // Convert block elements to newlines
-        html = html.replace(/<br\\s*\\/?>/gi, '\\n');
-        html = html.replace(/<\\/(?:div|p|li|h[1-6])>/gi, '\\n');
-        
-        // Remove italic tags completely
-        html = html.replace(/<\\/?(?:em|i)>/gi, '');
-        
-        // Remove all tags except strong, b, u, mark
-        const keepTags = 'strong|b|u|mark';
-        html = html.replace(new RegExp('<(?!\\/?' + '(' + keepTags + '))[^>]+>', 'gi'), '');
-        html = html.replace(new RegExp('<\\/(?!' + '(' + keepTags + '))[^>]+>', 'gi'), '');
-        
-        html = html.replace(/\\n\\s*\\n/g, '\\n').trim();
-        return html || element.textContent?.trim() || '';
+          // Clone to avoid modifying DOM
+          const clone = element.cloneNode(true);
+          // Remove scripts/styles
+          const toRemove = clone.querySelectorAll('script, style, noscript, svg');
+          toRemove.forEach((el) => el.remove());
+          return clone.innerHTML?.replace(/\\s+/g, ' ').trim();
       };
 
       const isNavigationOrFooter = (element) => {
         const tagName = element.tagName.toLowerCase();
+        const testId = element.getAttribute('data-testid') || '';
+        const className = typeof element.className === 'string' ? element.className : '';
+        const id = element.id || '';
         
-        if (['nav', 'footer'].includes(tagName)) return true;
+        // Footer: Only exclude main site footer
+        if (tagName === 'footer') {
+            if (testId === 'pui-footer' || className.includes('global-footer') || element.getAttribute('role') === 'contentinfo') {
+                return true;
+            }
+            // Allow other footers (like card footers)
+            return false;
+        }
+        
+        if (tagName === 'nav') return true;
         
         if (tagName === 'header') {
-          const testId = element.getAttribute('data-testid') || '';
-          const className = typeof element.className === 'string' ? element.className : '';
-          const id = element.id || '';
-          
-          // Allow container-header__content (page content), block navigation headers
+          // Allow container-header__content (page content)
           if (className.includes('container-header__content')) return false;
           
+          // Exclude main site headers
+          if (testId.includes('header') || id.includes('header') || className.includes('global-header') || element.getAttribute('role') === 'banner') {
+             // Double check it's not a hero section
+             if (!className.includes('hero') && !className.includes('banner')) {
+                 return true;
+             }
+          }
+          
+          // Exclude explicit nav headers
           if (testId.includes('nav') || className.includes('nav') || id.includes('nav')) {
             return true;
           }
-          // Only block if it's a top-level header (not content header)
-          if (testId.includes('header') || id.includes('header') || className.includes('global-header')) {
-            return true;
-          }
+          
           return false;
         }
         
-        const testId = element.getAttribute('data-testid') || '';
-        if (testId === 'pui-disclaimer-banner' || testId === 'pui-live-pricing' || testId === 'pui-cookies' ||
+        // Excluded components (removed pui-live-pricing)
+        if (testId === 'pui-disclaimer-banner' || testId === 'pui-cookies' ||
             testId === 'pui-gn-btn-default' || testId === 'pui-gn-btn-text' || 
             testId === 'pui-language-selector' || testId === 'top-nav-component' ||
             testId === 'mobile-top-nav-component' || testId === 'pui-sub-navigation' || testId === 'pui-breadcrumb') {
           return true;
         }
         
-        const className = typeof element.className === 'string' ? element.className : '';
-        const id = element.id || '';
-        
         if (className.includes('global-nav-button-decor')) return true;
         
         const combinedText = (className + ' ' + id).toLowerCase();
         const navFooterPatterns = [
           'global-nav', 'top-nav', 'main-nav', 'primary-nav',
-          'footer', 'sidebar', 'breadcrumb',
+          'sidebar', 'breadcrumb',
           'cookie', 'toolbar', 'topbar', 'bottombar'
         ];
         
@@ -113,24 +98,128 @@ async function extractContent(page: any, scrapingMode: string) {
       };
 
       const findMainContent = () => {
-        const mainSelectors = [
-          'main', 'article', '[role="main"]',
-          '.main-content', '.content', '#content', '#main'
-        ];
-        
-        for (const selector of mainSelectors) {
-          const element = document.querySelector(selector);
-          if (element) return element;
-        }
+        const main = document.querySelector('main');
+        if (main) return main;
+        const article = document.querySelector('article');
+        if (article) return article;
+        const content = document.querySelector('#content') || document.querySelector('.content') || document.querySelector('.main');
+        if (content) return content;
         return document.body;
       };
 
+
+      // Specialized handler for Live Pricing (using injected data)
+      const injectLivePricingData = () => {
+        console.log('Attempting to inject Live Pricing Data...');
+        if (!livePricingData || livePricingData.length === 0) {
+            console.log('No live pricing data to inject.');
+            return;
+        }
+        console.log('Injecting ' + livePricingData.length + ' tabs of data.');
+
+        livePricingData.forEach(tabData => {
+            if (!tabData) return;
+
+            // Add Tab
+            const tabContent = 'Tab: ' + tabData.tabName;
+            if (!processedTexts.has(tabContent)) {
+                processedTexts.add(tabContent);
+                result.push({
+                    sectionType: 'live-pricing-tab',
+                    sectionTitle: 'Live Pricing Tab',
+                    content: tabContent,
+                    orderIndex: orderIndex++,
+                });
+            }
+
+            // Add Tables
+            tabData.tables.forEach((table, index) => {
+                const tableContent = '[Table] Headers: ' + table.headers + ' || Rows: ' + table.rows.join(', ');
+                if (!processedTexts.has(tableContent)) {
+                    processedTexts.add(tableContent);
+                    result.push({
+                        sectionType: 'live-pricing-table',
+                        sectionTitle: 'Live Pricing Table ' + (index + 1),
+                        content: tableContent,
+                        orderIndex: orderIndex++,
+                    });
+                }
+            });
+        });
+      };
+
       const traverse = (element) => {
-        if (!element || !element.tagName) return;
+        if (!element) return;
+        
+        // Handle Text Nodes directly
+        if (element.nodeType === Node.TEXT_NODE) {
+            const text = element.textContent?.trim();
+            if (text && text.length > 3 && !processedTexts.has(text)) {
+                processedTexts.add(text);
+                result.push({
+                    sectionType: 'text',
+                    sectionTitle: null,
+                    content: text,
+                    orderIndex: orderIndex++,
+                });
+            }
+            return;
+        }
+
+        if (element.nodeType !== Node.ELEMENT_NODE) return;
         
         const tagName = element.tagName.toLowerCase();
         if (['script', 'style', 'noscript', 'iframe', 'svg'].includes(tagName)) return;
+        
+        // Check for Ant Design accordion ITEM container BEFORE visibility check
+        // This allows us to capture both header and body together
+        const earlyClassName = typeof element.className === 'string' ? element.className : '';
+        if (earlyClassName.includes('ant-collapse-item')) {
+          // Extract header
+          const headerEl = element.querySelector('.ant-collapse-header');
+          const headerText = headerEl ? getCleanText(headerEl) : null;
+          const headerFormatted = headerEl ? getFormattedText(headerEl) : null;
+          
+          // Extract body content
+          const contentBox = element.querySelector('.ant-collapse-content-box') || element.querySelector('.ant-collapse-content');
+          const bodyText = contentBox ? getCleanText(contentBox) : null;
+          const bodyFormatted = contentBox ? getFormattedText(contentBox) : null;
+          
+          // Use a unique key combining header text with element index to avoid deduplication issues
+          const uniqueKey = 'accordion-' + orderIndex + '-' + (headerText || '').substring(0, 50);
+          
+          if (headerText && headerText.length > 0 && !processedTexts.has(uniqueKey + '-header')) {
+            processedTexts.add(uniqueKey + '-header');
+            result.push({
+              sectionType: 'accordion-header',
+              sectionTitle: headerText,
+              content: headerFormatted,
+              orderIndex: orderIndex++,
+            });
+          }
+          
+          if (bodyText && bodyText.length > 0 && !processedTexts.has(uniqueKey + '-body')) {
+            processedTexts.add(uniqueKey + '-body');
+            result.push({
+              sectionType: 'accordion-body',
+              sectionTitle: null,
+              content: bodyFormatted,
+              orderIndex: orderIndex++,
+            });
+          }
+          
+          return; // Don't traverse children, we captured header and body
+        }
+        
         if (!isVisible(element)) return;
+        
+        // Check for Live Pricing Component
+        const testId = element.getAttribute('data-testid') || '';
+        if (testId === 'pui-live-pricing') {
+            console.log('Found pui-live-pricing element during traversal.');
+            injectLivePricingData();
+            return; // Stop traversing this branch as we handled it
+        }
         
         // Only check isNavigationOrFooter if we are in 'main' mode
         if (scrapingMode === 'main' && isNavigationOrFooter(element)) return;
@@ -140,10 +229,10 @@ async function extractContent(page: any, scrapingMode: string) {
           const rows = element.querySelectorAll('tr');
           if (rows.length > 0) {
             const tableContent = [];
-            rows.forEach(row => {
+            rows.forEach((row) => {
               const cells = row.querySelectorAll('th, td');
               const cellTexts = [];
-              cells.forEach(cell => {
+              cells.forEach((cell) => {
                 const cellText = getCleanText(cell);
                 if (cellText) cellTexts.push(cellText);
               });
@@ -186,14 +275,29 @@ async function extractContent(page: any, scrapingMode: string) {
           return;
         }
         
-        // Accordion headers
+        // Accordion handling - detect non-Ant Design accordion patterns
+        // (Ant Design accordions are handled earlier via ant-collapse-item)
         const className = typeof element.className === 'string' ? element.className : '';
-        if (className.includes('ant-collapse-header')) {
+        
+        // Skip ant-collapse elements as they're handled above
+        if (className.includes('ant-collapse-header') || className.includes('ant-collapse-content')) {
+          return;
+        }
+        
+        // Accordion header detection (Radix UI, custom implementations)
+        const isAccordionHeader = className.includes('accordion-header') ||
+          className.includes('accordion__header') ||
+          className.includes('accordion-trigger') ||
+          element.getAttribute('data-testid')?.includes('accordion') ||
+          (element.getAttribute('role') === 'button' && element.closest('[data-testid*="accordion"]'));
+        
+        if (isAccordionHeader) {
           const text = getCleanText(element);
           const formattedText = getFormattedText(element);
+          const uniqueKey = 'accordion-header-' + orderIndex + '-' + text.substring(0, 50);
           
-          if (text && text.length > 0 && !processedTexts.has(text)) {
-            processedTexts.add(text);
+          if (text && text.length > 0 && !processedTexts.has(uniqueKey)) {
+            processedTexts.add(uniqueKey);
             result.push({
               sectionType: 'accordion-header',
               sectionTitle: text,
@@ -201,11 +305,37 @@ async function extractContent(page: any, scrapingMode: string) {
               orderIndex: orderIndex++,
             });
           }
-          return;
+          // Don't return - continue to traverse children/siblings for body content
         }
         
-        // Buttons and links
-        if (['button', 'a'].includes(tagName)) {
+        // Accordion body/content detection (non-Ant Design)
+        const isAccordionBody = className.includes('accordion-body') ||
+          className.includes('accordion__body') ||
+          className.includes('accordion-content') ||
+          className.includes('accordion__content') ||
+          className.includes('accordion-panel') ||
+          element.getAttribute('data-testid')?.includes('accordion-content') ||
+          element.getAttribute('role') === 'region';
+        
+        if (isAccordionBody) {
+          const text = getCleanText(element);
+          const formattedText = getFormattedText(element);
+          const uniqueKey = 'accordion-body-' + orderIndex + '-' + text.substring(0, 50);
+          
+          if (text && text.length > 0 && !processedTexts.has(uniqueKey)) {
+            processedTexts.add(uniqueKey);
+            result.push({
+              sectionType: 'accordion-body',
+              sectionTitle: null,
+              content: formattedText,
+              orderIndex: orderIndex++,
+            });
+          }
+          return; // Captured body content, don't traverse children again
+        }
+        
+        // Buttons
+        if (tagName === 'button') {
           const text = getCleanText(element);
           const formattedText = getFormattedText(element);
           
@@ -214,42 +344,43 @@ async function extractContent(page: any, scrapingMode: string) {
             result.push({
               sectionType: tagName,
               sectionTitle: null,
-              content: tagName === 'a' ? '<u>' + formattedText + '</u>' : formattedText,
+              content: formattedText,
               orderIndex: orderIndex++,
             });
           }
           return;
         }
-        
-        // Direct div text
-        if (tagName === 'div') {
-          let directText = '';
-          let directHTML = '';
-          
-          for (const node of element.childNodes) {
-            if (node.nodeType === Node.TEXT_NODE) {
-              directText += node.textContent?.trim() || '';
-            } else if (node.nodeType === Node.ELEMENT_NODE && ['STRONG', 'B', 'EM', 'I', 'U', 'MARK'].includes(node.tagName)) {
-              directHTML += node.outerHTML;
-              directText += node.textContent?.trim() || '';
-            }
-          }
-          
-          if (directText && directText.length > 10 && !processedTexts.has(directText)) {
-            processedTexts.add(directText);
-            result.push({
-              sectionType: 'div-text',
-              sectionTitle: null,
-              content: directHTML || directText,
-              orderIndex: orderIndex++,
-            });
-          }
-        }
 
-        // Traverse children
-        if (element.children) {
-          for (let i = 0; i < element.children.length; i++) {
-            traverse(element.children[i]);
+        // Links (<a>) - Smart Handling
+        if (tagName === 'a') {
+            // Check if it contains block elements (div, p, headings, section, article)
+            const hasBlockChildren = element.querySelector('div, p, h1, h2, h3, h4, h5, h6, section, article');
+            
+            if (hasBlockChildren) {
+                // It's a complex card/container link -> Traverse children
+                // We don't return here, we let it fall through to "Traverse children"
+            } else {
+                // It's a simple text link -> Capture it
+                const text = getCleanText(element);
+                const formattedText = getFormattedText(element);
+                
+                if (text && text.length > 0 && !processedTexts.has(text)) {
+                    processedTexts.add(text);
+                    result.push({
+                        sectionType: 'link',
+                        sectionTitle: null,
+                        content: '<u>' + formattedText + '</u>',
+                        orderIndex: orderIndex++,
+                    });
+                }
+                return; // Stop traversing children for simple links
+            }
+        }
+        
+        // Traverse childNodes (handles both Elements and Text Nodes)
+        if (element.childNodes) {
+          for (let i = 0; i < element.childNodes.length; i++) {
+            traverse(element.childNodes[i]);
           }
         }
       };
@@ -258,12 +389,12 @@ async function extractContent(page: any, scrapingMode: string) {
         // First check for specific Pepperstone header class
         const psHeaders = document.querySelectorAll('.ps-grid-in-header');
         if (psHeaders.length > 0) {
-            psHeaders.forEach(header => traverse(header));
+            psHeaders.forEach((header) => traverse(header));
         } else {
             // Fallback to standard headers
             const headers = document.querySelectorAll('header, [role="banner"], .global-header, .header');
             if (headers.length > 0) {
-                headers.forEach(header => traverse(header));
+                headers.forEach((header) => traverse(header));
             } else {
                 traverse(document.body);
             }
@@ -271,74 +402,211 @@ async function extractContent(page: any, scrapingMode: string) {
       } else if (scrapingMode === 'footer') {
         const footers = document.querySelectorAll('footer, [role="contentinfo"], .global-footer, .footer');
         if (footers.length > 0) {
-            footers.forEach(footer => traverse(footer));
+            footers.forEach((footer) => traverse(footer));
         } else {
             traverse(document.body);
         }
       } else {
+        // Main Mode - Enhanced to capture Hero/Banner sections
+        
+        // 1. Traverse Hero/Banner sections
+        const heroSelectors = ['.top-banner', '.hero', '.hero-banner', '.banner'];
+        const heroElements = [];
+        heroSelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => heroElements.push(el));
+        });
+        
+        heroElements.forEach(hero => traverse(hero));
+
+        // 2. Traverse Main Content
         const mainContent = findMainContent();
-        if (mainContent) traverse(mainContent);
+        if (mainContent) {
+            // Avoid re-traversing if mainContent is inside a hero (unlikely) or vice versa
+            // Simple check: if mainContent is not contained in any processed hero
+            const isInsideHero = heroElements.some(hero => hero.contains(mainContent));
+            if (!isInsideHero) {
+                traverse(mainContent);
+            }
+        }
       }
 
       return result;
-    })()
-  `;
+  };
+`;
 
-  return await page.evaluate(extractionScript);
-}
-
-export async function scrapeUrl(
-  url: string,
-  scrapingMode: "main" | "header" | "footer" = "main"
-): Promise<{
-  pageTitle: string;
-  content: Array<{
-    sectionType: string;
-    sectionTitle: string | null;
-    content: string;
-    orderIndex: number;
-    charCount: number;
-  }>;
-}> {
-  if (!isBrowserlessConfigured()) {
-    throw new Error('Browserless not configured. Please set BROWSERLESS_API_KEY environment variable.');
-  }
-
-  console.log('[Scraper] Connecting to Browserless...');
-  const endpoint = getBrowserlessEndpoint();
-  console.log('[Scraper] Endpoint:', endpoint.replace(BROWSERLESS_API_KEY!, '***'));
-
-  const browser = await chromium.connectOverCDP(endpoint);
-  console.log('[Scraper] Connected successfully');
+export async function scrapeUrl(url: string, scrapingMode: "main" | "header" | "footer" = "main"): Promise<{ pageTitle: string, content: ScrapedSection[] }> {
+  console.log(`Connecting to Browserless for ${url} in ${scrapingMode} mode...`);
+  const browser = await chromium.connectOverCDP(BROWSERLESS_URL);
+  const context = await browser.newContext();
+  const page = await context.newPage();
 
   try {
-    const context = await browser.newContext();
-    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    console.log(`[Scraper] Navigating to ${url} with mode ${scrapingMode}...`);
-    await page.goto(url, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000
+    // Expand all accordions to reveal hidden content
+    console.log('Expanding accordions...');
+    await page.evaluate(() => {
+      // Click all accordion triggers to expand them
+      const accordionSelectors = [
+        // Radix UI / Headless UI patterns
+        '[data-state="closed"]',
+        '[aria-expanded="false"]',
+        // Ant Design
+        '.ant-collapse-header',
+        // Common patterns
+        '.accordion-header',
+        '.accordion__header',
+        '.accordion-trigger',
+        '.accordion__trigger',
+        '[data-testid*="accordion"]',
+        // Button-based accordions
+        'button[aria-controls]',
+        // Details/summary elements
+        'details:not([open]) summary'
+      ];
+      
+      accordionSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach((el) => {
+            // Skip if already expanded
+            if (el.getAttribute('data-state') === 'open' || 
+                el.getAttribute('aria-expanded') === 'true' ||
+                (el.tagName === 'DETAILS' && el.hasAttribute('open'))) {
+              return;
+            }
+            
+            // For details elements, set open attribute
+            if (el.tagName === 'DETAILS') {
+              el.setAttribute('open', '');
+              return;
+            }
+            
+            // Click to expand
+            if (el instanceof HTMLElement) {
+              el.click();
+            }
+          });
+        } catch (e) {
+          console.log('Error expanding accordion with selector:', selector, e);
+        }
+      });
     });
-    console.log('[Scraper] Page loaded');
+    
+    // Wait for accordion animations to complete
+    await page.waitForTimeout(1000);
 
-    await page.waitForTimeout(2000);
+    // Interactive Live Pricing Extraction (Only in Main Mode)
+    let livePricingData: any[] = [];
+    if (scrapingMode === 'main') {
+      // Check if Live Pricing exists (wait for it to load)
+      let hasLivePricing = false;
+      try {
+        await page.waitForSelector('[data-testid="pui-live-pricing"]', { timeout: 10000 });
+        hasLivePricing = true;
+        console.log('Live Pricing component detected.');
+      } catch (e) {
+        console.log('Live Pricing component not found or timed out.');
+      }
+
+      if (hasLivePricing) {
+        console.log('Live Pricing component found. Starting interactive extraction...');
+
+        // Get number of tabs
+        const tabCount = await page.evaluate(() => {
+          return document.querySelectorAll('[data-testid="pui-live-pricing"] button[role="tab"]').length;
+        });
+
+        console.log(`Found ${tabCount} tabs.`);
+
+        for (let i = 0; i < tabCount; i++) {
+          // Click tab
+          await page.evaluate((index) => {
+            const tabs = document.querySelectorAll('[data-testid="pui-live-pricing"] button[role="tab"]');
+            if (tabs[index]) (tabs[index] as HTMLElement).click();
+          }, i);
+
+          // Wait for content update (simple timeout for now, could be smarter)
+          await page.waitForTimeout(2000);
+
+          // Extract data for this tab
+          const tabData = await page.evaluate((index) => {
+            const container = document.querySelector('[data-testid="pui-live-pricing"]');
+            if (!container) return null;
+
+            const tabs = container.querySelectorAll('button[role="tab"]');
+            const currentTabName = tabs[index]?.textContent?.trim();
+
+            const tables = container.querySelectorAll('table');
+            const tablesData: any[] = [];
+
+            tables.forEach((table, tableIndex) => {
+              const headers = Array.from(table.querySelectorAll('th'))
+                .map(th => th.textContent?.trim())
+                .filter(text => text)
+                .join(' | ');
+
+              const rows = table.querySelectorAll('tbody tr');
+              const rowData: string[] = [];
+              rows.forEach(row => {
+                const firstCell = row.querySelector('td:first-child');
+                const lastCell = row.querySelector('td:last-child');
+                let lastCellContent = '';
+                if (lastCell) {
+                  const button = lastCell.querySelector('button');
+                  const link = lastCell.querySelector('a');
+                  if (button) lastCellContent = button.outerHTML;
+                  else if (link) lastCellContent = link.outerHTML;
+                }
+                const firstColText = firstCell ? firstCell.textContent?.trim() : null;
+                if (firstColText) {
+                  rowData.push(firstColText + (lastCellContent ? ' | ' + lastCellContent : ''));
+                }
+              });
+
+              if (headers || rowData.length > 0) {
+                tablesData.push({
+                  headers,
+                  rows: rowData
+                });
+              }
+            });
+
+            return {
+              tabName: currentTabName,
+              tables: tablesData
+            };
+          }, i);
+
+          if (tabData) {
+            livePricingData.push(tabData);
+          }
+        }
+      }
+    }
+
+    // Inject the extraction script
+    await page.addScriptTag({ content: EXTRACT_CONTENT_SCRIPT });
+
+    console.log(`[Server] Live Pricing Data collected: ${livePricingData.length} tabs`);
+    if (livePricingData.length > 0) {
+      console.log(`[Server] First tab data:`, JSON.stringify(livePricingData[0], null, 2));
+    }
+
+    // Enable console logging from the page
+    page.on('console', msg => console.log(`[Browser] ${msg.text()}`));
+
+    // Execute the extraction function
+    const sections = await page.evaluate(({ scrapingMode, livePricingData }: { scrapingMode: any, livePricingData: any }) => {
+      // @ts-ignore
+      return window.extractContent({ scrapingMode, livePricingData });
+    }, { scrapingMode, livePricingData });
 
     const pageTitle = await page.title();
-    console.log(`[Scraper] Page title: ${pageTitle}`);
+    return { pageTitle, content: sections };
 
-    console.log('[Scraper] Extracting content...');
-    const rawContent = await extractContent(page, scrapingMode);
-    console.log(`[Scraper] Extracted ${rawContent.length} sections`);
-
-    const content = rawContent.map((section: any) => ({
-      ...section,
-      charCount: section.content.length,
-    }));
-
-    await context.close();
-
-    return { pageTitle, content };
+  } catch (error) {
+    console.error(`Error scraping ${url}:`, error);
+    throw error;
   } finally {
     await browser.close();
   }

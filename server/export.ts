@@ -2,6 +2,30 @@ import ExcelJS from 'exceljs';
 import * as db from './db';
 
 /**
+ * Strip HTML tags from content and decode entities
+ */
+function stripHtmlTags(html: string): string {
+  if (!html) return '';
+  
+  // Remove HTML tags
+  let text = html.replace(/<[^>]*>/g, '');
+  
+  // Decode common HTML entities
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&apos;/g, "'");
+  
+  // Clean up extra whitespace
+  text = text.replace(/\s+/g, ' ').trim();
+  
+  return text;
+}
+
+/**
  * Generate Excel file with multiple sheets (one per URL)
  */
 export async function generateExcel(jobId: number): Promise<Buffer> {
@@ -9,15 +33,37 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
 
   const workbook = new ExcelJS.Workbook();
 
+  const usedSheetNames = new Set<string>();
+
   for (const page of pagesWithContent) {
     // Create sheet name from page title or URL
-    let sheetName = page.pageTitle || page.url;
-    // Excel sheet names have a 31 character limit
-    if (sheetName.length > 31) {
-      sheetName = sheetName.substring(0, 28) + '...';
-    }
+    let baseSheetName = page.pageTitle || page.url;
+
     // Remove invalid characters for sheet names
-    sheetName = sheetName.replace(/[:\\/?*\[\]]/g, '-');
+    baseSheetName = baseSheetName.replace(/[:\\/?*\[\]]/g, '-');
+
+    // Excel sheet names have a 31 character limit
+    // We reserve 5 chars for potential suffix " (99)"
+    if (baseSheetName.length > 26) {
+      baseSheetName = baseSheetName.substring(0, 26) + '...';
+    }
+
+    let sheetName = baseSheetName;
+    let counter = 1;
+
+    // Handle duplicates
+    while (usedSheetNames.has(sheetName)) {
+      sheetName = `${baseSheetName} (${counter})`;
+      // If adding suffix pushes over 31 chars, truncate base further
+      if (sheetName.length > 31) {
+        const suffix = ` (${counter})`;
+        const maxBaseLength = 31 - suffix.length;
+        sheetName = baseSheetName.substring(0, maxBaseLength) + suffix;
+      }
+      counter++;
+    }
+
+    usedSheetNames.add(sheetName);
 
     const worksheet = workbook.addWorksheet(sheetName);
 
@@ -58,19 +104,37 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
     const htmlToRichText = (html: string): ExcelJS.RichText[] => {
       const richText: ExcelJS.RichText[] = [];
 
-      // Convert HTML entities
+      // Convert HTML entities first
       html = html.replace(/&nbsp;/g, ' ');
       html = html.replace(/&amp;/g, '&');
+      html = html.replace(/&lt;/g, '<');
+      html = html.replace(/&gt;/g, '>');
+      html = html.replace(/&quot;/g, '"');
+      html = html.replace(/&#39;/g, "'");
+      html = html.replace(/&apos;/g, "'");
+      
+      // Replace <br>, <br/>, <br /> with newline
+      html = html.replace(/<br\s*\/?>/gi, '\n');
+      
+      // Replace block-level tags with spacing to prevent words sticking together
+      // These tags naturally create visual breaks
+      html = html.replace(/<\/(p|div|li|h[1-6]|tr|td|th)>/gi, ' ');
+      html = html.replace(/<(p|div|li|h[1-6]|tr|td|th)(?:\s[^>]*)?>/gi, '');
+      
+      // Remove other non-formatting tags but preserve their content
+      // Keep: strong, b, u, a, i, em (for formatting)
+      // Remove: span, font, sub, sup, etc.
+      html = html.replace(/<\/?(span|font|sub|sup|small|big|mark|del|ins|s|strike|abbr|cite|code|kbd|samp|var|dfn|q)(?:\s[^>]*)?>/gi, '');
 
-      // Simple parser for HTML tags
-      const regex = /<(\/?)(\w+)>/g;
+      // Parser for formatting tags (handles tags with attributes like <a href="...">)
+      const regex = /<(\/?)(\w+)(?:[^>]*)>/g;
       let lastIndex = 0;
-      let currentFormatting: { bold?: boolean; underline?: boolean } = {};
+      let currentFormatting: { bold?: boolean; underline?: boolean; italic?: boolean } = {};
       const formatStack: Array<{ tag: string; formatting: typeof currentFormatting }> = [];
 
       let match;
       while ((match = regex.exec(html)) !== null) {
-        // Add text before tag
+        // Add text before tag (preserve spaces!)
         if (match.index > lastIndex) {
           const text = html.substring(lastIndex, match.index);
           if (text) {
@@ -90,10 +154,13 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
 
           if (tag === 'strong' || tag === 'b') {
             currentFormatting.bold = true;
-          } else if (tag === 'u') {
+          } else if (tag === 'u' || tag === 'a') {
+            // Underline for <u> and <a> tags
             currentFormatting.underline = true;
+          } else if (tag === 'i' || tag === 'em') {
+            // Italic for <i> and <em> tags
+            currentFormatting.italic = true;
           }
-          // em and i tags are ignored (already removed by scraper)
         } else {
           // Closing tag - restore formatting
           const stackItem = formatStack.pop();
@@ -116,27 +183,41 @@ export async function generateExcel(jobId: number): Promise<Buffer> {
         }
       }
 
-      return richText.length > 0 ? richText : [{ text: html }];
+      // If no rich text segments created, return plain text
+      if (richText.length === 0) {
+        return [{ text: html }];
+      }
+      
+      // Filter out empty text segments but keep segments with only spaces
+      return richText.filter(rt => rt.text && rt.text.length > 0);
     };
 
     // Add data rows
     sortedContent.forEach((section, index) => {
-      // Calculate word count
-      const wordCount = section.content.trim() ? section.content.trim().split(/\s+/).length : 0;
+      // Calculate word count from plain text
+      const plainText = stripHtmlTags(section.content);
+      const wordCount = plainText.trim() ? plainText.trim().split(/\s+/).length : 0;
 
       const row = worksheet.addRow({
         order: index + 1,
         tag: section.sectionType,
-        sourceText: '', // Will set richText below
+        sourceText: '', // Will set below
         wordCount: wordCount,
         translation: '',
       });
 
-      // Apply rich text formatting to source text
+      // Apply rich text formatting to all content
+      // This converts HTML tags to Excel formatting:
+      // <strong>/<b> → Bold, <u>/<a> → Underline, <i>/<em> → Italic
       const sourceCell = row.getCell('sourceText');
-      sourceCell.value = {
-        richText: htmlToRichText(section.content)
-      };
+      const richTextContent = htmlToRichText(section.content);
+      
+      // If rich text has content, use it; otherwise fall back to plain text
+      if (richTextContent.length > 0) {
+        sourceCell.value = { richText: richTextContent };
+      } else {
+        sourceCell.value = plainText;
+      }
     });
 
     // Auto-fit columns (with min/max limits)
@@ -183,14 +264,15 @@ export async function generateCSV(jobId: number): Promise<string> {
     const sortedContent = [...page.content].sort((a, b) => a.orderIndex - b.orderIndex);
 
     sortedContent.forEach((section, index) => {
-      // Calculate word count
-      const wordCount = section.content.trim() ? section.content.trim().split(/\s+/).length : 0;
+      // Strip HTML tags from all content for CSV (CSV doesn't support formatting)
+      const plainText = stripHtmlTags(section.content);
+      const wordCount = plainText.trim() ? plainText.trim().split(/\s+/).length : 0;
 
       rows.push([
         page.url,
         (index + 1).toString(), // Sequential order starting from 1
         section.sectionType, // HTML tag name
-        section.content,
+        plainText, // Plain text without HTML tags
         wordCount.toString(),
         '', // Empty for translation
       ]);
